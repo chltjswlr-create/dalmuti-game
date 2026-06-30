@@ -1168,9 +1168,8 @@ function useFirebaseGame() {
 //  10. ë£¨í¸ ì±
 // ================================================================
 
-// ì± ë¡ë ìì ì URL íë¼ë¯¸í° í ë²ë§ ì½ê¸° (SPA ë¦¬ë¤ì´ë í¸ ì )
-const IS_DEV_MODE = window.location.search.includes("dev=true") ||
-  window.location.href.includes("dev=true");
+// ì± ë¡ë ìì ì URL í´ìë¡ ê°ë°ëª¨ë ì²´í¬ (#dev) - SPAìì ì ë ë ìê°ì§ ìì
+const IS_DEV_MODE = window.location.hash.includes("dev");
 
 export default function App() {
   const {
