@@ -721,12 +721,10 @@ function MainScreen({ onCreateRoom, onJoinRoom, loading, isDevMode, onTestMode }
               className="w-full py-3 rounded-2xl bg-white/10 border border-white/10 text-white font-semibold hover:bg-white/15 transition-all active:scale-95">
               ë°© ì°¸ì¬íê¸°
             </button>
-            {showDevButton && (
-              <button onClick={() => { if (!nickname.trim()) { setError("ëë¤ìì ìë ¥í´ì£¼ì¸ì"); return; } onTestMode(nickname.trim()); }}
+            <button onClick={() => { if (!nickname.trim()) { setError("ëë¤ìì ìë ¥í´ì£¼ì¸ì"); return; } onTestMode(nickname.trim()); }}
                 className="w-full py-3 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold transition-all shadow-lg active:scale-95">
                 ð¤ í¼ì íì¤í¸íê¸° (ë´ 4ëª)
               </button>
-            )}
           </div>
         ) : (
           <div className="flex flex-col gap-3">
