@@ -815,7 +815,7 @@ function useFirebaseGame() {
   }, [roomCode, uid]);
 
   // ââ ê°ë° ëª¨ë ì²´í¬ (?dev=true) ââââââââââââââââââââââââââââ
-  const isDevMode = window.location.href.includes("dev=true");
+  const isDevMode = new URLSearchParams(window.location.search).get("dev") === "true";
 
   // ââ íì¤í¸ ëª¨ë: ë´ 4ëªê³¼ í¨ê» ë°© ë§ë¤ê¸° ââââââââââââââââââ
   async function startTestGame(nickname) {
