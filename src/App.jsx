@@ -815,7 +815,7 @@ function useFirebaseGame() {
   }, [roomCode, uid]);
 
   // ââ ê°ë° ëª¨ë ì²´í¬ (?dev=true) ââââââââââââââââââââââââââââ
-  const isDevMode = new URLSearchParams(window.location.search).get("dev") === "true";
+  // (App ì»´í¬ëí¸ ìµìë¨ìì ì²ë¦¬íë¯ë¡ ì¬ê¸°ì  ì ê±°)
 
   // ââ íì¤í¸ ëª¨ë: ë´ 4ëªê³¼ í¨ê» ë°© ë§ë¤ê¸° ââââââââââââââââââ
   async function startTestGame(nickname) {
@@ -1159,7 +1159,6 @@ function useFirebaseGame() {
   return {
     uid, screen, loading, roomCode, gs, players,
     taxPhase, tributeReceived,
-    isDevMode,
     createRoom, joinRoom, startGame, playCards, pass,
     tributeCards, returnCards, readyForNext, startTestGame,
   };
@@ -1168,11 +1167,15 @@ function useFirebaseGame() {
 // ================================================================
 //  10. ë£¨í¸ ì±
 // ================================================================
+
+// ì± ë¡ë ìì ì URL íë¼ë¯¸í° í ë²ë§ ì½ê¸° (SPA ë¦¬ë¤ì´ë í¸ ì )
+const IS_DEV_MODE = window.location.search.includes("dev=true") ||
+  window.location.href.includes("dev=true");
+
 export default function App() {
   const {
     uid, screen, loading, roomCode, gs, players,
     taxPhase, tributeReceived,
-    isDevMode,
     createRoom, joinRoom, startGame, playCards, pass,
     tributeCards, returnCards, readyForNext, startTestGame,
   } = useFirebaseGame();
@@ -1199,7 +1202,7 @@ export default function App() {
     );
 
   if (screen === "main")
-    return <MainScreen onCreateRoom={createRoom} onJoinRoom={joinRoom} loading={loading} isDevMode={isDevMode} onTestMode={startTestGame} />;
+    return <MainScreen onCreateRoom={createRoom} onJoinRoom={joinRoom} loading={loading} isDevMode={IS_DEV_MODE} onTestMode={startTestGame} />;
 
   if (screen === "lobby")
     return (
