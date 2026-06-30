@@ -664,6 +664,19 @@ function MainScreen({ onCreateRoom, onJoinRoom, loading, isDevMode, onTestMode }
   const [roomCode, setRoomCode] = useState("");
   const [error, setError] = useState("");
   const [showRules, setShowRules] = useState(false);
+  const [devTapCount, setDevTapCount] = useState(0);
+  const [devUnlocked, setDevUnlocked] = useState(false);
+
+  function handleSecretTap() {
+    const next = devTapCount + 1;
+    setDevTapCount(next);
+    if (next >= 5) {
+      setDevUnlocked(true);
+      setDevTapCount(0);
+    }
+  }
+
+  const showDevButton = isDevMode || devUnlocked;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 flex flex-col items-center justify-center p-6">
@@ -708,7 +721,7 @@ function MainScreen({ onCreateRoom, onJoinRoom, loading, isDevMode, onTestMode }
               className="w-full py-3 rounded-2xl bg-white/10 border border-white/10 text-white font-semibold hover:bg-white/15 transition-all active:scale-95">
               ë°© ì°¸ì¬íê¸°
             </button>
-            {isDevMode && (
+            {showDevButton && (
               <button onClick={() => { if (!nickname.trim()) { setError("ëë¤ìì ìë ¥í´ì£¼ì¸ì"); return; } onTestMode(nickname.trim()); }}
                 className="w-full py-3 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold transition-all shadow-lg active:scale-95">
                 ð¤ í¼ì íì¤í¸íê¸° (ë´ 4ëª)
@@ -739,6 +752,8 @@ function MainScreen({ onCreateRoom, onJoinRoom, loading, isDevMode, onTestMode }
           <div key={t} className="bg-white/5 rounded-xl py-3 text-white/30 text-xs">{t}</div>
         ))}
       </div>
+      {/* ë¹ë° í­ ìì­: ìê´ 5ë² í­íë©´ ê°ë°ëª¨ë íì±í */}
+      <div onClick={handleSecretTap} className="mt-4 w-8 h-8 opacity-0 cursor-default" />
     </div>
   );
 }
@@ -1168,8 +1183,8 @@ function useFirebaseGame() {
 //  10. ë£¨í¸ ì±
 // ================================================================
 
-// ì± ë¡ë ìì ì URL í´ìë¡ ê°ë°ëª¨ë ì²´í¬ (#dev) - SPAìì ì ë ë ìê°ì§ ìì
-const IS_DEV_MODE = window.location.hash.includes("dev");
+// ì± ë¡ë ìì  ê°ë°ëª¨ë (í­ 5ë²ì¼ë¡ íì±í)
+const IS_DEV_MODE = false; // ìë MainScreenìì í­ì¼ë¡ íì±í
 
 export default function App() {
   const {
