@@ -1,20 +1,20 @@
 
 // ================================================================
-//  ë¬ë¬´í° (The Great Dalmuti) â ìì±ë³¸
-//  â Firebase Realtime Database ì¤ìê° ë©í°íë ì´
-//  â ì¸ê¸ ìì¤í (ë¬ë¬´í°âìëíë¸ì 2ì¥, ì´ë¦¬âë¸ì 1ì¥)
-//  â íëª ì ì¸ (ë¸ìê° ì¡°ì»¤ 2ì¥ ë³´ì  ì)
-//  â ê³ê¸ë³ ìë¦¬ ì¬ë°°ì¹
+//  달무티 (The Great Dalmuti) — 완성본
+//  ✅ Firebase Realtime Database 실시간 멀티플레이
+//  ✅ 세금 시스템 (달무티↔위대한노예 2장, 총리↔노예 1장)
+//  ✅ 혁명 선언 (노예가 조커 2장 보유 시)
+//  ✅ 계급별 자리 재배치
 //
-//  ð¦ íìí í¨í¤ì§:
+//  📦 필요한 패키지:
 //     npm install firebase
 //
-//  ð¥ Firebase ì¤ì  ë°©ë²:
-//     1. https://console.firebase.google.com ìì íë¡ì í¸ ìì±
-//     2. Realtime Database íì±í (íì¤í¸ ëª¨ëë¡ ìì)
-//     3. ìë FIREBASE_CONFIG ê°ì ë³¸ì¸ íë¡ì í¸ ê°ì¼ë¡ êµì²´
+//  🔥 Firebase 설정 방법:
+//     1. https://console.firebase.google.com 에서 프로젝트 생성
+//     2. Realtime Database 활성화 (테스트 모드로 시작)
+//     3. 아래 FIREBASE_CONFIG 값을 본인 프로젝트 값으로 교체
 //
-//  ð Firebase Security Rules (Realtime Database):
+//  🔒 Firebase Security Rules (Realtime Database):
 //  {
 //    "rules": {
 //      "rooms": {
@@ -57,7 +57,7 @@ import {
   onAuthStateChanged,
 } from "firebase/auth";
 
-// ââ ð¥ Firebase ì¤ì  (ë³¸ì¸ íë¡ì í¸ ê°ì¼ë¡ êµì²´) ââââââââââââââ
+// ── 🔥 Firebase 설정 (본인 프로젝트 값으로 교체) ──────────────
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyD_bm4Kq0DWxGmQJbIG4wsxFvweCUhH68w",
   authDomain: "dalmuti-game-8ac6b.firebaseapp.com",
@@ -73,7 +73,7 @@ const db = getDatabase(firebaseApp);
 const auth = getAuth(firebaseApp);
 
 // ================================================================
-//  1. ê²ì ì í¸ë¦¬í°
+//  1. 게임 유틸리티
 // ================================================================
 
 function buildDeck() {
@@ -106,22 +106,22 @@ function dealCards(playerIds) {
 }
 
 function validatePlay(cards, pile) {
-  if (!cards || cards.length === 0) return { ok: false, error: "ì¹´ëë¥¼ ì ííì¸ì" };
+  if (!cards || cards.length === 0) return { ok: false, error: "카드를 선택하세요" };
   const nonJoker = cards.filter((c) => !c.joker);
   if (nonJoker.length > 1 && new Set(nonJoker.map((c) => c.rank)).size > 1)
-    return { ok: false, error: "ê°ì ì«ì ì¹´ëë§ ë¼ ì ìì´ì" };
+    return { ok: false, error: "같은 숫자 카드만 낼 수 있어요" };
   if (pile && pile.length > 0) {
     if (cards.length !== pile.length)
-      return { ok: false, error: `ë°ë¥ê³¼ ê°ì ${pile.length}ì¥ì ë´ì¼ í´ì` };
+      return { ok: false, error: `바닥과 같은 ${pile.length}장을 내야 해요` };
     const myRank = nonJoker[0]?.rank;
     const pileRank = pile.find((c) => !c.joker)?.rank ?? pile[0]?.rank;
     if (myRank && pileRank && myRank >= pileRank)
-      return { ok: false, error: "ë ë®ì(ê°í) ì«ìì¬ì¼ í´ì" };
+      return { ok: false, error: "더 낮은(강한) 숫자여야 해요" };
   }
   return { ok: true };
 }
 
-// ê³ê¸ ë°°ì  (ìë£ ìì ê¸°ë°)
+// 계급 배정 (완료 순서 기반)
 const RANK_KEYS = ["dalmuti", "prime", "peasant", "slave", "great_slave"];
 function assignRanks(finishedOrder, totalPlayers) {
   const ranks = {};
@@ -135,10 +135,10 @@ function assignRanks(finishedOrder, totalPlayers) {
   return ranks;
 }
 
-// ì¸ê¸: ì´ë¤ ì¹´ëë¥¼ ë°ì³ì¼ íëì§ ê³ì°
+// 세금: 어떤 카드를 바쳐야 하는지 계산
 function computeTax(hands, ranks) {
-  // ìëí ë¸ì â ë¬ë¬´í°: ê°ì¥ ì¢ì ì¹´ë(rank ë®ì) 2ì¥
-  // ë¸ì â ì´ë¦¬: ê°ì¥ ì¢ì ì¹´ë 1ì¥
+  // 위대한 노예 → 달무티: 가장 좋은 카드(rank 낮은) 2장
+  // 노예 → 총리: 가장 좋은 카드 1장
   const greatSlaveId = Object.keys(ranks).find((id) => ranks[id] === "great_slave");
   const dalmutiId = Object.keys(ranks).find((id) => ranks[id] === "dalmuti");
   const slaveId = Object.keys(ranks).find((id) => ranks[id] === "slave");
@@ -157,27 +157,27 @@ function computeTax(hands, ranks) {
   return tributeCards;
 }
 
-// ë¬ë¬´í°/ì´ë¦¬ê° ëë ¤ì¤ ìµìì ì¹´ë
+// 달무티/총리가 돌려줄 최악의 카드
 function computeReturn(hands, ranks, tributeCount) {
   // tributeCount: { dalmutiId: 2, primeId: 1 }
   const result = {};
   Object.entries(tributeCount).forEach(([receiverId, count]) => {
-    const sorted = [...(hands[receiverId] || [])].sort((a, b) => b.rank - a.rank); // ëì(ì½í) ì
+    const sorted = [...(hands[receiverId] || [])].sort((a, b) => b.rank - a.rank); // 높은(약한) 순
     result[receiverId] = sorted.slice(0, count);
   });
   return result;
 }
 
 // ================================================================
-//  2. ìì
+//  2. 상수
 // ================================================================
 
 const RANK_LABEL = {
-  dalmuti: "ð ë¬ë¬´í°",
-  prime: "ð¤µ ì´ë¦¬",
-  peasant: "ð¨ íë¯¼",
-  slave: "ð ë¸ì",
-  great_slave: "âï¸ ìëí ë¸ì",
+  dalmuti: "👑 달무티",
+  prime: "🤵 총리",
+  peasant: "👨 평민",
+  slave: "🔗 노예",
+  great_slave: "⛓️ 위대한 노예",
 };
 const RANK_COLOR = {
   dalmuti: "from-yellow-400 to-amber-600",
@@ -199,13 +199,13 @@ function generateRoomCode() {
 }
 
 // ================================================================
-//  3. UI ì»´í¬ëí¸
+//  3. UI 컴포넌트
 // ================================================================
 
-// ââ ì¹´ë ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 카드 ──────────────────────────────────────────────────────
 function Card({ card, selected, onClick, disabled, size = "md" }) {
   const isJoker = card.joker;
-  const label = isJoker ? "ð" : card.rank;
+  const label = isJoker ? "🃏" : card.rank;
   const color = isJoker
     ? "bg-gradient-to-br from-purple-500 to-pink-500 text-white"
     : card.rank <= 3
@@ -226,18 +226,18 @@ function Card({ card, selected, onClick, disabled, size = "md" }) {
     >
       <span>{label}</span>
       {selected && (
-        <span className="absolute -top-2 -right-2 bg-white text-blue-600 rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold">â</span>
+        <span className="absolute -top-2 -right-2 bg-white text-blue-600 rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold">✓</span>
       )}
     </button>
   );
 }
 
-// ââ ë°ë¥ ì¹´ë âââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 바닥 카드 ─────────────────────────────────────────────────
 function Pile({ pile }) {
   if (!pile || pile.length === 0)
     return (
       <div className="flex items-center justify-center w-44 h-24 rounded-2xl border-2 border-dashed border-white/20 text-white/30 text-sm">
-        ë°ë¥ ë¹ì´ìì
+        바닥 비어있음
       </div>
     );
   return (
@@ -248,13 +248,13 @@ function Pile({ pile }) {
         </div>
       ))}
       <div className="ml-2 text-white/70 text-sm font-semibold">
-        {pile.length}ì¥ Â· {pile.find(c=>!c.joker)?.rank ?? "ì¡°ì»¤"}ë²
+        {pile.length}장 · {pile.find(c=>!c.joker)?.rank ?? "조커"}번
       </div>
     </div>
   );
 }
 
-// ââ ìë íë ì´ì´ í í° ââââââââââââââââââââââââââââââââââââââââ
+// ── 상대 플레이어 토큰 ────────────────────────────────────────
 function PlayerToken({ player, isCurrentTurn }) {
   return (
     <div className={`flex flex-col items-center gap-1 px-2 py-2 rounded-xl transition-all min-w-[64px]
@@ -264,14 +264,14 @@ function PlayerToken({ player, isCurrentTurn }) {
         {player.nickname[0]}
       </div>
       <span className="text-white text-[11px] font-medium truncate max-w-[56px]">{player.nickname}</span>
-      <span className="text-white/40 text-[10px]">ð {player.cardCount}</span>
+      <span className="text-white/40 text-[10px]">🃏 {player.cardCount}</span>
       {player.rank && <span className="text-[9px] text-yellow-300">{RANK_LABEL[player.rank]}</span>}
-      {isCurrentTurn && <span className="text-[10px] text-yellow-400 animate-pulse font-bold">â¶ ì°¨ë¡</span>}
+      {isCurrentTurn && <span className="text-[10px] text-yellow-400 animate-pulse font-bold">▶ 차례</span>}
     </div>
   );
 }
 
-// ââ ì¤ë²ë ì´ ëª¨ë¬ âââââââââââââââââââââââââââââââââââââââââââââ
+// ── 오버레이 모달 ─────────────────────────────────────────────
 function Modal({ children }) {
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -283,9 +283,9 @@ function Modal({ children }) {
 }
 
 // ================================================================
-//  4. ì¸ê¸ íë©´ (TaxScreen)
+//  4. 세금 화면 (TaxScreen)
 // ================================================================
-// phase: "tribute" (ë°ì¹ê¸°) | "return_pick" (ë¬ë¬´í°/ì´ë¦¬ê° ëë ¤ì¤ ì¹´ë ì í) | "done"
+// phase: "tribute" (바치기) | "return_pick" (달무티/총리가 돌려줄 카드 선택) | "done"
 function TaxScreen({ myId, myHand, ranks, tributeMap, onTributeDone, onReturnDone, taxPhase }) {
   const [selected, setSelected] = useState([]);
   const myRole = ranks[myId];
@@ -294,14 +294,14 @@ function TaxScreen({ myId, myHand, ranks, tributeMap, onTributeDone, onReturnDon
   const isDalmuti = myRole === "dalmuti";
   const isPrime = myRole === "prime";
 
-  // íëª ì²´í¬ (ìëí ë¸ìê° ì¡°ì»¤ 2ì¥ ë³´ì )
+  // 혁명 체크 (위대한 노예가 조커 2장 보유)
   const myJokers = (myHand || []).filter(c => c.joker);
   const canRevolution = isGreatSlave && myJokers.length >= 2;
 
-  // ë´ê° ë°ì³ì¼ í  ì¹´ë ì
+  // 내가 바쳐야 할 카드 수
   const requiredCount = isGreatSlave ? 2 : isSlave ? 1 : 0;
 
-  // ë¬ë¬´í°/ì´ë¦¬ê° ëë ¤ì¤ ì¹´ë ì (ë°ì ë§í¼)
+  // 달무티/총리가 돌려줄 카드 수 (받은 만큼)
   const returnCount = isDalmuti ? 2 : isPrime ? 1 : 0;
 
   function toggle(card) {
@@ -318,20 +318,20 @@ function TaxScreen({ myId, myHand, ranks, tributeMap, onTributeDone, onReturnDon
     return (
       <Modal>
         <h2 className="text-white text-xl font-bold mb-1">
-          {isGreatSlave ? "âï¸ ìëí ë¸ì" : "ð ë¸ì"} â ì¸ê¸ ë©ë¶
+          {isGreatSlave ? "⛓️ 위대한 노예" : "🔗 노예"} — 세금 납부
         </h2>
         <p className="text-white/50 text-sm mb-4">
-          ê°ì¥ ì¢ì ì¹´ë {requiredCount}ì¥ì {isGreatSlave ? "ë¬ë¬´í°" : "ì´ë¦¬"}ìê² ë°ì³ì¼ í©ëë¤.
+          가장 좋은 카드 {requiredCount}장을 {isGreatSlave ? "달무티" : "총리"}에게 바쳐야 합니다.
         </p>
         {canRevolution && (
           <div className="bg-red-500/20 border border-red-500/40 rounded-xl p-3 mb-4">
-            <p className="text-red-400 text-sm font-bold">ð¥ íëª ê°ë¥!</p>
-            <p className="text-red-300/70 text-xs mt-1">ì¡°ì»¤ 2ì¥ì ëª¨ë ë³´ì íê³  ìì´ íëªì ì ì¸í  ì ììµëë¤.</p>
+            <p className="text-red-400 text-sm font-bold">🔥 혁명 가능!</p>
+            <p className="text-red-300/70 text-xs mt-1">조커 2장을 모두 보유하고 있어 혁명을 선언할 수 있습니다.</p>
             <button
               onClick={() => onTributeDone({ type: "revolution" })}
               className="mt-2 w-full py-2 rounded-xl bg-red-500 hover:bg-red-400 text-white font-bold text-sm transition-all"
             >
-              ð¥ íëª ì ì¸! (ì¸ê¸ ë©´ì  + ê³ê¸ ì ì§)
+              🔥 혁명 선언! (세금 면제 + 계급 유지)
             </button>
           </div>
         )}
@@ -347,7 +347,7 @@ function TaxScreen({ myId, myHand, ranks, tributeMap, onTributeDone, onReturnDon
           disabled={selected.length !== requiredCount}
           className="w-full py-3 rounded-2xl bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold transition-all"
         >
-          {selected.length}/{requiredCount}ì¥ ì í â ë°ì¹ê¸°
+          {selected.length}/{requiredCount}장 선택 → 바치기
         </button>
       </Modal>
     );
@@ -358,13 +358,13 @@ function TaxScreen({ myId, myHand, ranks, tributeMap, onTributeDone, onReturnDon
     return (
       <Modal>
         <h2 className="text-white text-xl font-bold mb-1">
-          {isDalmuti ? "ð ë¬ë¬´í°" : "ð¤µ ì´ë¦¬"} â ëµë¡ ì¹´ë ì í
+          {isDalmuti ? "👑 달무티" : "🤵 총리"} — 답례 카드 선택
         </h2>
         <p className="text-white/50 text-sm mb-2">
-          ì¸ê¸ì¼ë¡ ë°ì ì¹´ë: {received.map(c => c.joker ? "ì¡°ì»¤" : `${c.rank}ë²`).join(", ")}
+          세금으로 받은 카드: {received.map(c => c.joker ? "조커" : `${c.rank}번`).join(", ")}
         </p>
         <p className="text-white/50 text-sm mb-4">
-          ëë ¤ì¤ ì¹´ë {returnCount}ì¥ì ì ííì¸ì. (ì½í ì¹´ë ê¶ì¥)
+          돌려줄 카드 {returnCount}장을 선택하세요. (약한 카드 권장)
         </p>
         <div className="flex flex-wrap gap-2 justify-center mb-4">
           {(myHand || []).map(card => (
@@ -378,26 +378,26 @@ function TaxScreen({ myId, myHand, ranks, tributeMap, onTributeDone, onReturnDon
           disabled={selected.length !== returnCount}
           className="w-full py-3 rounded-2xl bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold transition-all"
         >
-          {selected.length}/{returnCount}ì¥ ì í â ëë ¤ì£¼ê¸°
+          {selected.length}/{returnCount}장 선택 → 돌려주기
         </button>
       </Modal>
     );
   }
 
-  // íë¯¼ì´ê±°ë ì¸ê¸ ì²ë¦¬ ì¤ ë¤ë¥¸ ì¬ë ê¸°ë¤ë¦¬ë íë©´
+  // 평민이거나 세금 처리 중 다른 사람 기다리는 화면
   return (
     <Modal>
       <div className="text-center py-6">
-        <div className="text-4xl mb-3 animate-spin">â³</div>
-        <p className="text-white font-bold">ì¸ê¸ ì²ë¦¬ ì¤...</p>
-        <p className="text-white/40 text-sm mt-2">ë¤ë¥¸ íë ì´ì´ì ì¸ê¸ ì²ë¦¬ë¥¼ ê¸°ë¤ë¦½ëë¤.</p>
+        <div className="text-4xl mb-3 animate-spin">⏳</div>
+        <p className="text-white font-bold">세금 처리 중...</p>
+        <p className="text-white/40 text-sm mt-2">다른 플레이어의 세금 처리를 기다립니다.</p>
       </div>
     </Modal>
   );
 }
 
 // ================================================================
-//  5. ê²ì íì´ë¸ (GameTable)
+//  5. 게임 테이블 (GameTable)
 // ================================================================
 function GameTable({ gs, myId, onPlay, onPass }) {
   const [selected, setSelected] = useState([]);
@@ -421,12 +421,12 @@ function GameTable({ gs, myId, onPlay, onPass }) {
   const validMsg = (() => {
     if (selected.length === 0) return null;
     const nj = selected.filter(c => !c.joker);
-    if (nj.length > 1 && new Set(nj.map(c => c.rank)).size > 1) return "ê°ì ì«ì ì¹´ëë§ ë¼ ì ìì´ì";
+    if (nj.length > 1 && new Set(nj.map(c => c.rank)).size > 1) return "같은 숫자 카드만 낼 수 있어요";
     if (pile && pile.length > 0) {
-      if (selected.length !== pile.length) return `ë°ë¥ê³¼ ê°ì ${pile.length}ì¥ì ë´ì¼ í´ì`;
+      if (selected.length !== pile.length) return `바닥과 같은 ${pile.length}장을 내야 해요`;
       const myRank = nj[0]?.rank;
       const pileRank = pile.find(c => !c.joker)?.rank;
-      if (myRank && pileRank && myRank >= pileRank) return "ë ë®ì(ê°í) ì«ìì¬ì¼ í´ì";
+      if (myRank && pileRank && myRank >= pileRank) return "더 낮은(강한) 숫자여야 해요";
     }
     return null;
   })();
@@ -435,32 +435,32 @@ function GameTable({ gs, myId, onPlay, onPass }) {
     <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-green-900 to-teal-950 flex flex-col">
       {/* HUD */}
       <div className="flex items-center justify-between px-4 py-2 bg-black/40 backdrop-blur border-b border-white/5">
-        <span className="text-white/60 text-sm">ë¼ì´ë <span className="text-white font-bold">{round}</span></span>
-        <span className="text-white font-black tracking-widest text-lg">ë¬ë¬´í°</span>
+        <span className="text-white/60 text-sm">라운드 <span className="text-white font-bold">{round}</span></span>
+        <span className="text-white font-black tracking-widest text-lg">달무티</span>
         <span className={`text-xs font-bold px-3 py-1 rounded-full transition-all
           ${isMyTurn ? "bg-yellow-400 text-yellow-900 animate-pulse" : "bg-white/10 text-white/50"}`}>
-          {isMyTurn ? "â¡ ë´ ì°¨ë¡!" : "ëê¸° ì¤"}
+          {isMyTurn ? "⚡ 내 차례!" : "대기 중"}
         </span>
       </div>
 
-      {/* ìëë°© */}
+      {/* 상대방 */}
       <div className="flex flex-wrap gap-2 justify-center px-3 pt-3 pb-1">
         {others.map(p => (
           <PlayerToken key={p.id} player={p} isCurrentTurn={currentTurn === p.id} />
         ))}
       </div>
 
-      {/* ì¤ì ë°ë¥ */}
+      {/* 중앙 바닥 */}
       <div className="flex-1 flex flex-col items-center justify-center gap-3 px-4">
         <div className="bg-black/25 backdrop-blur rounded-3xl px-6 py-5 flex flex-col items-center gap-3 shadow-xl border border-white/5 w-full max-w-sm">
-          <p className="text-white/30 text-[10px] uppercase tracking-widest">ë°ë¥ ì¹´ë</p>
+          <p className="text-white/30 text-[10px] uppercase tracking-widest">바닥 카드</p>
           <Pile pile={pile} />
           {gs.lastPlayerNick && pile?.length > 0 && (
-            <p className="text-white/30 text-xs">ë§ì§ë§: {gs.lastPlayerNick}</p>
+            <p className="text-white/30 text-xs">마지막: {gs.lastPlayerNick}</p>
           )}
         </div>
 
-        {/* ë¡ê·¸ */}
+        {/* 로그 */}
         <div className="w-full max-w-sm bg-black/20 rounded-2xl px-4 py-2 max-h-16 overflow-y-auto">
           {(log || []).slice(-5).reverse().map((l, i) => (
             <p key={i} className={`text-xs truncate ${i === 0 ? "text-white/60" : "text-white/25"}`}>{l}</p>
@@ -468,7 +468,7 @@ function GameTable({ gs, myId, onPlay, onPass }) {
         </div>
       </div>
 
-      {/* ë´ ìí¨ */}
+      {/* 내 손패 */}
       <div className="bg-black/50 backdrop-blur border-t border-white/10 px-4 py-4">
         {self?.rank && (
           <div className={`inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full bg-gradient-to-r ${RANK_COLOR[self.rank]} text-white mb-2`}>
@@ -483,20 +483,20 @@ function GameTable({ gs, myId, onPlay, onPass }) {
               disabled={!isMyTurn} />
           ))}
           {myHand.length === 0 && (
-            <p className="text-white/20 text-sm self-center">í¨ê° ììµëë¤ ð</p>
+            <p className="text-white/20 text-sm self-center">패가 없습니다 🎉</p>
           )}
         </div>
-        {validMsg && <p className="text-center text-red-400 text-xs mb-2">â  {validMsg}</p>}
+        {validMsg && <p className="text-center text-red-400 text-xs mb-2">⚠ {validMsg}</p>}
         <div className="flex gap-3 justify-center">
           <button onClick={handlePlay}
             disabled={!isMyTurn || selected.length === 0 || !!validMsg}
             className="px-6 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95">
-            ì¹´ë ë´ê¸° ({selected.length})
+            카드 내기 ({selected.length})
           </button>
           <button onClick={() => { onPass(); setSelected([]); }}
             disabled={!isMyTurn || !pile || pile.length === 0}
             className="px-6 py-2 bg-slate-600 hover:bg-slate-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-semibold rounded-xl shadow-lg transition-all active:scale-95">
-            í¨ì¤
+            패스
           </button>
         </div>
       </div>
@@ -505,7 +505,7 @@ function GameTable({ gs, myId, onPlay, onPass }) {
 }
 
 // ================================================================
-//  6. ë¼ì´ë ê²°ê³¼ íë©´
+//  6. 라운드 결과 화면
 // ================================================================
 function RoundResult({ finished, players, round, isRevolution, onReady, selfId, readyIds }) {
   const isReady = readyIds?.includes(selfId);
@@ -514,12 +514,12 @@ function RoundResult({ finished, players, round, isRevolution, onReady, selfId, 
       <div className="w-full max-w-md bg-white/5 border border-white/10 rounded-3xl p-8 shadow-2xl">
         {isRevolution && (
           <div className="bg-red-500/20 border border-red-500/40 rounded-2xl p-3 mb-4 text-center">
-            <p className="text-red-400 font-black text-lg">ð¥ íëª ë°ì!</p>
-            <p className="text-red-300/70 text-sm">ì¸ê¸ì´ ë©´ì ë©ëë¤. ê³ê¸ì ê·¸ëë¡ ì ì§ë©ëë¤.</p>
+            <p className="text-red-400 font-black text-lg">🔥 혁명 발생!</p>
+            <p className="text-red-300/70 text-sm">세금이 면제됩니다. 계급은 그대로 유지됩니다.</p>
           </div>
         )}
-        <h2 className="text-white text-2xl font-bold text-center mb-1">ë¼ì´ë {round} ì¢ë£</h2>
-        <p className="text-white/40 text-sm text-center mb-5">ë¤ì ë¼ì´ë ê³ê¸</p>
+        <h2 className="text-white text-2xl font-bold text-center mb-1">라운드 {round} 종료</h2>
+        <p className="text-white/40 text-sm text-center mb-5">다음 라운드 계급</p>
         <div className="space-y-2 mb-6">
           {finished.map((id, i) => {
             const p = players?.find(pl => pl.id === id);
@@ -539,7 +539,7 @@ function RoundResult({ finished, players, round, isRevolution, onReady, selfId, 
         </div>
         <button onClick={onReady} disabled={isReady}
           className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 text-white font-bold transition-all shadow-lg">
-          {isReady ? `â ì¤ë¹ ìë£ (${readyIds?.length ?? 0}/${players?.length ?? 0})` : "ë¤ì ë¼ì´ë ì¤ë¹!"}
+          {isReady ? `✅ 준비 완료 (${readyIds?.length ?? 0}/${players?.length ?? 0})` : "다음 라운드 준비!"}
         </button>
       </div>
     </div>
@@ -547,27 +547,27 @@ function RoundResult({ finished, players, round, isRevolution, onReady, selfId, 
 }
 
 // ================================================================
-//  7. ëê¸°ì¤ (Lobby)
+//  7. 대기실 (Lobby)
 // ================================================================
 function Lobby({ roomCode, players, selfId, isHost, onStart, onCopy }) {
   const canStart = players.length >= 5 && players.length <= 10;
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-emerald-950 flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-md bg-white/5 border border-white/10 rounded-3xl p-8 shadow-2xl">
-        <h2 className="text-white text-2xl font-bold text-center mb-1">ê²ì ëê¸°ì¤</h2>
-        <p className="text-white/40 text-sm text-center mb-6">5~10ëªì´ ëª¨ì´ë©´ ìì ê°ë¥í´ì</p>
+        <h2 className="text-white text-2xl font-bold text-center mb-1">게임 대기실</h2>
+        <p className="text-white/40 text-sm text-center mb-6">5~10명이 모이면 시작 가능해요</p>
 
         <div className="flex items-center gap-2 bg-black/30 rounded-xl px-4 py-3 mb-6">
-          <span className="text-white/40 text-xs uppercase tracking-widest">ë°© ì½ë</span>
+          <span className="text-white/40 text-xs uppercase tracking-widest">방 코드</span>
           <span className="text-yellow-400 font-mono font-bold text-2xl tracking-widest flex-1">{roomCode}</span>
           <button onClick={onCopy}
             className="text-xs bg-yellow-400 text-yellow-900 font-bold px-3 py-1 rounded-lg hover:bg-yellow-300 transition-colors active:scale-95">
-            ë³µì¬
+            복사
           </button>
         </div>
 
         <div className="space-y-2 mb-6">
-          <p className="text-white/30 text-xs uppercase tracking-widest mb-3">ì°¸ê°ì ({players.length}/10)</p>
+          <p className="text-white/30 text-xs uppercase tracking-widest mb-3">참가자 ({players.length}/10)</p>
           {players.map(p => (
             <div key={p.id} className={`flex items-center gap-3 px-4 py-2 rounded-xl
               ${p.id === selfId ? "bg-emerald-500/20 border border-emerald-500/30" : "bg-white/5"}`}>
@@ -575,15 +575,15 @@ function Lobby({ roomCode, players, selfId, isHost, onStart, onCopy }) {
                 {p.nickname[0]}
               </div>
               <span className="text-white text-sm flex-1">{p.nickname}</span>
-              {p.id === selfId && <span className="text-emerald-400 text-xs">ë</span>}
-              {p.isHost && <span className="text-yellow-400 text-xs">ð ë°©ì¥</span>}
+              {p.id === selfId && <span className="text-emerald-400 text-xs">나</span>}
+              {p.isHost && <span className="text-yellow-400 text-xs">👑 방장</span>}
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             </div>
           ))}
           {Array.from({ length: Math.max(0, 5 - players.length) }).map((_, i) => (
             <div key={i} className="flex items-center gap-3 px-4 py-2 rounded-xl bg-white/5 border border-dashed border-white/10">
               <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-500">?</div>
-              <span className="text-white/20 text-sm">ëê¸° ì¤...</span>
+              <span className="text-white/20 text-sm">대기 중...</span>
             </div>
           ))}
         </div>
@@ -593,10 +593,10 @@ function Lobby({ roomCode, players, selfId, isHost, onStart, onCopy }) {
             className="w-full py-3 rounded-2xl font-bold text-base transition-all
               bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg hover:from-emerald-400 hover:to-teal-400
               disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed">
-            {canStart ? "ð® ê²ì ìì!" : `${5 - players.length}ëª ë íìí´ì`}
+            {canStart ? "🎮 게임 시작!" : `${5 - players.length}명 더 필요해요`}
           </button>
         ) : (
-          <p className="text-center text-white/30 text-sm py-3">ë°©ì¥ì´ ê²ìì ììí  ëê¹ì§ ê¸°ë¤ë ¤ì£¼ì¸ì</p>
+          <p className="text-center text-white/30 text-sm py-3">방장이 게임을 시작할 때까지 기다려주세요</p>
         )}
       </div>
     </div>
@@ -604,51 +604,51 @@ function Lobby({ roomCode, players, selfId, isHost, onStart, onCopy }) {
 }
 
 // ================================================================
-//  8. ê²ì ê·ì¹ íì
+//  8. 게임 규칙 팝업
 // ================================================================
 function RulesPopup({ onClose }) {
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-white text-xl font-bold">ð ë¬ë¬´í° ê²ì ê·ì¹</h2>
-          <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">â</button>
+          <h2 className="text-white text-xl font-bold">👑 달무티 게임 규칙</h2>
+          <button onClick={onClose} className="text-white/40 hover:text-white text-2xl">✕</button>
         </div>
         <div className="space-y-4 text-white/70 text-sm leading-relaxed">
           <div>
-            <p className="text-yellow-400 font-bold mb-1">ð ì¹´ë êµ¬ì± (ì´ 80ì¥)</p>
-            <p>1ë² 1ì¥ ~ 12ë² 12ì¥ + ì¡°ì»¤(ì´ìë£©í ì¬ë) 2ì¥. ì«ìê° ë®ììë¡ ê°í ì¹´ëìì.</p>
+            <p className="text-yellow-400 font-bold mb-1">🃏 카드 구성 (총 80장)</p>
+            <p>1번 1장 ~ 12번 12장 + 조커(어수룩한 사람) 2장. 숫자가 낮을수록 강한 카드예요.</p>
           </div>
           <div>
-            <p className="text-yellow-400 font-bold mb-1">ð® ê¸°ë³¸ ì§í</p>
-            <p>ì  íë ì´ì´ê° ê°ì ì«ì ì¹´ë Nì¥ì ëëë¤. ë¤ì íë ì´ì´ë ê°ì ì¥ìì´ë©´ì ë ë®ì ì«ìë¥¼ ë´ê±°ë í¨ì¤í´ì¼ í´ì. ëª¨ë í¨ì¤íë©´ ë§ì§ë§ì ë¸ ì¬ëì´ ì ì ì´ ë©ëë¤.</p>
+            <p className="text-yellow-400 font-bold mb-1">🎮 기본 진행</p>
+            <p>선 플레이어가 같은 숫자 카드 N장을 냅니다. 다음 플레이어는 같은 장수이면서 더 낮은 숫자를 내거나 패스해야 해요. 모두 패스하면 마지막에 낸 사람이 새 선이 됩니다.</p>
           </div>
           <div>
-            <p className="text-yellow-400 font-bold mb-1">ð ê³ê¸ (2ë¼ì´ëë¶í°)</p>
+            <p className="text-yellow-400 font-bold mb-1">👑 계급 (2라운드부터)</p>
             <ul className="space-y-1 mt-1">
-              <li>ð¥ <span className="text-yellow-300">ë¬ë¬´í°</span> â 1ë±</li>
-              <li>ð¥ <span className="text-blue-300">ì´ë¦¬</span> â 2ë± (6ì¸ ì´ì)</li>
-              <li>ð¨ <span className="text-green-300">íë¯¼</span> â ì¤ê°</li>
-              <li>ð <span className="text-orange-300">ë¸ì</span> â ê¼´ì°ìì 2ë± (6ì¸ ì´ì)</li>
-              <li>âï¸ <span className="text-red-300">ìëí ë¸ì</span> â ê¼´ì°</li>
+              <li>🥇 <span className="text-yellow-300">달무티</span> — 1등</li>
+              <li>🥈 <span className="text-blue-300">총리</span> — 2등 (6인 이상)</li>
+              <li>👨 <span className="text-green-300">평민</span> — 중간</li>
+              <li>🔗 <span className="text-orange-300">노예</span> — 꼴찌에서 2등 (6인 이상)</li>
+              <li>⛓️ <span className="text-red-300">위대한 노예</span> — 꼴찌</li>
             </ul>
           </div>
           <div>
-            <p className="text-yellow-400 font-bold mb-1">ð° ì¸ê¸ ìì¤í</p>
-            <p>ìëí ë¸ì â ë¬ë¬´í°ìê² ê°ì¥ ì¢ì ì¹´ë 2ì¥ íë©. ë¸ì â ì´ë¦¬ìê² 1ì¥ íë©. ë¬ë¬´í°/ì´ë¦¬ë ì ì¢ì ì¹´ëë¡ ëë ¤ì¤ì.</p>
+            <p className="text-yellow-400 font-bold mb-1">💰 세금 시스템</p>
+            <p>위대한 노예 → 달무티에게 가장 좋은 카드 2장 헌납. 노예 → 총리에게 1장 헌납. 달무티/총리는 안 좋은 카드로 돌려줘요.</p>
           </div>
           <div>
-            <p className="text-yellow-400 font-bold mb-1">ð¥ íëª!</p>
-            <p>ìëí ë¸ìê° ì¡°ì»¤ 2ì¥ì ëª¨ë ê°ì§ê³  ìì¼ë©´ íëªì ì ì¸í  ì ìì´ì. ì¸ê¸ì´ ë©´ì ë©ëë¤!</p>
+            <p className="text-yellow-400 font-bold mb-1">🔥 혁명!</p>
+            <p>위대한 노예가 조커 2장을 모두 가지고 있으면 혁명을 선언할 수 있어요. 세금이 면제됩니다!</p>
           </div>
           <div>
-            <p className="text-yellow-400 font-bold mb-1">ð¥ ì¸ì</p>
-            <p>5ëª ~ 10ëª. ë°©ì¥ì´ 5ëª ì´ì ëª¨ì´ë©´ ê²ìì ììí  ì ìì´ì.</p>
+            <p className="text-yellow-400 font-bold mb-1">👥 인원</p>
+            <p>5명 ~ 10명. 방장이 5명 이상 모이면 게임을 시작할 수 있어요.</p>
           </div>
         </div>
         <button onClick={onClose}
           className="w-full mt-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold">
-          íì¸!
+          확인!
         </button>
       </div>
     </div>
@@ -656,7 +656,7 @@ function RulesPopup({ onClose }) {
 }
 
 // ================================================================
-//  9. ë©ì¸ íë©´
+//  9. 메인 화면
 // ================================================================
 function MainScreen({ onCreateRoom, onJoinRoom, loading, isDevMode, onTestMode }) {
   const [nickname, setNickname] = useState("");
@@ -682,95 +682,95 @@ function MainScreen({ onCreateRoom, onJoinRoom, loading, isDevMode, onTestMode }
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 flex flex-col items-center justify-center p-6">
       {showRules && <RulesPopup onClose={() => setShowRules(false)} />}
       <div className="text-center mb-10">
-        <div className="text-6xl mb-3 animate-bounce">ð</div>
-        <h1 className="text-5xl font-black text-white tracking-tight">ë¬ë¬´í°</h1>
+        <div className="text-6xl mb-3 animate-bounce">👑</div>
+        <h1 className="text-5xl font-black text-white tracking-tight">달무티</h1>
         <p className="text-emerald-400 text-xs mt-2 tracking-[0.3em] uppercase">The Great Dalmuti</p>
-        <p className="text-white/20 text-xs mt-3">5~10ì¸ ì¤ìê° ì¹´ë ê²ì</p>
+        <p className="text-white/20 text-xs mt-3">5~10인 실시간 카드 게임</p>
         <button onClick={() => setShowRules(true)}
           className="mt-3 text-xs text-emerald-400/70 border border-emerald-400/30 px-3 py-1 rounded-full hover:bg-emerald-400/10 transition-all">
-          ð ê²ì ê·ì¹ ë³´ê¸°
+          📖 게임 규칙 보기
         </button>
       </div>
 
       <div className="w-full max-w-sm bg-white/5 border border-white/10 rounded-3xl p-8 shadow-2xl">
-        <label className="block text-white/40 text-xs uppercase tracking-widest mb-2">ëë¤ì</label>
+        <label className="block text-white/40 text-xs uppercase tracking-widest mb-2">닉네임</label>
         <input value={nickname} onChange={e => { setNickname(e.target.value); setError(""); }}
-          placeholder="ì: ê¹ë¬ë¬´í°" maxLength={10}
+          placeholder="예: 김달무티" maxLength={10}
           className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 text-sm mb-4 focus:outline-none focus:border-emerald-400 transition-colors" />
 
         {mode === "join" && (
           <>
-            <label className="block text-white/40 text-xs uppercase tracking-widest mb-2">ë°© ì½ë</label>
+            <label className="block text-white/40 text-xs uppercase tracking-widest mb-2">방 코드</label>
             <input value={roomCode} onChange={e => { setRoomCode(e.target.value.toUpperCase()); setError(""); }}
-              placeholder="ì: A3K9" maxLength={6}
+              placeholder="예: A3K9" maxLength={6}
               className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 text-sm mb-4 font-mono tracking-widest focus:outline-none focus:border-emerald-400 transition-colors" />
           </>
         )}
 
-        {error && <p className="text-red-400 text-xs mb-3">â  {error}</p>}
+        {error && <p className="text-red-400 text-xs mb-3">⚠ {error}</p>}
 
         {loading ? (
-          <div className="text-center py-3 text-white/50 text-sm animate-pulse">ì°ê²° ì¤...</div>
+          <div className="text-center py-3 text-white/50 text-sm animate-pulse">연결 중...</div>
         ) : mode === null ? (
           <div className="flex flex-col gap-3">
-            <button onClick={() => { if (!nickname.trim()) { setError("ëë¤ìì ìë ¥í´ì£¼ì¸ì"); return; } onCreateRoom(nickname.trim()); }}
+            <button onClick={() => { if (!nickname.trim()) { setError("닉네임을 입력해주세요"); return; } onCreateRoom(nickname.trim()); }}
               className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold hover:from-emerald-400 hover:to-teal-400 transition-all shadow-lg active:scale-95">
-              ì ë°© ë§ë¤ê¸°
+              새 방 만들기
             </button>
             <button onClick={() => setMode("join")}
               className="w-full py-3 rounded-2xl bg-white/10 border border-white/10 text-white font-semibold hover:bg-white/15 transition-all active:scale-95">
-              ë°© ì°¸ì¬íê¸°
+              방 참여하기
             </button>
-            <button onClick={() => { if (!nickname.trim()) { setError("ëë¤ìì ìë ¥í´ì£¼ì¸ì"); return; } onTestMode(nickname.trim()); }}
+            <button onClick={() => { if (!nickname.trim()) { setError("닉네임을 입력해주세요"); return; } onTestMode(nickname.trim()); }}
                 className="w-full py-3 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold transition-all shadow-lg active:scale-95">
-                ð¤ í¼ì íì¤í¸íê¸° (ë´ 4ëª)
+                🤖 혼자 테스트하기 (봇 4명)
               </button>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
             <button onClick={async () => {
-              if (!nickname.trim()) { setError("ëë¤ìì ìë ¥í´ì£¼ì¸ì"); return; }
-              if (!roomCode.trim()) { setError("ë°© ì½ëë¥¼ ìë ¥í´ì£¼ì¸ì"); return; }
+              if (!nickname.trim()) { setError("닉네임을 입력해주세요"); return; }
+              if (!roomCode.trim()) { setError("방 코드를 입력해주세요"); return; }
               const r = await onJoinRoom(nickname.trim(), roomCode.trim());
               if (!r.ok) setError(r.error);
             }}
               className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold hover:from-emerald-400 hover:to-teal-400 transition-all shadow-lg active:scale-95">
-              ìì¥íê¸°
+              입장하기
             </button>
             <button onClick={() => { setMode(null); setRoomCode(""); setError(""); }}
               className="w-full py-3 rounded-2xl bg-white/5 text-white/40 text-sm hover:bg-white/10 transition-all">
-              â ë¤ë¡
+              ← 뒤로
             </button>
           </div>
         )}
       </div>
 
       <div className="mt-8 w-full max-w-sm grid grid-cols-3 gap-2 text-center">
-        {["ð 80ì¥ ë±", "ð ê³ê¸ ìì¤í", "ð¥ íëª ì ì¸"].map(t => (
+        {["🃏 80장 덱", "👑 계급 시스템", "🔥 혁명 선언"].map(t => (
           <div key={t} className="bg-white/5 rounded-xl py-3 text-white/30 text-xs">{t}</div>
         ))}
       </div>
-      {/* ë¹ë° í­ ìì­: ìê´ 5ë² í­íë©´ ê°ë°ëª¨ë íì±í */}
+      {/* 비밀 탭 영역: 왕관 5번 탭하면 개발모드 활성화 */}
       <div onClick={handleSecretTap} className="mt-4 w-8 h-8 opacity-0 cursor-default" />
     </div>
   );
 }
 
 // ================================================================
-//  9. Firebase í (useFirebaseGame)
+//  9. Firebase 훅 (useFirebaseGame)
 // ================================================================
 function useFirebaseGame() {
   const [uid, setUid] = useState(null);
   const [screen, setScreen] = useState("main"); // main|lobby|tax|game|result
   const [roomCode, setRoomCode] = useState(null);
-  const [roomData, setRoomData] = useState(null);  // ì ì²´ room ì¤ëì·
+  const [roomData, setRoomData] = useState(null);  // 전체 room 스냅샷
   const [myHand, setMyHand] = useState([]);
   const [loading, setLoading] = useState(true);
   const [taxPhase, setTaxPhase] = useState(null); // tribute|return_pick|null
   const [tributeReceived, setTributeReceived] = useState({}); // { receiverId: cards[] }
   const listeners = useRef([]);
 
-  // ìµëª ë¡ê·¸ì¸
+  // 익명 로그인
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) { setUid(user.uid); setLoading(false); }
@@ -782,7 +782,7 @@ function useFirebaseGame() {
     return unsub;
   }, []);
 
-  // ë°© ë°ì´í° ì¤ìê° êµ¬ë
+  // 방 데이터 실시간 구독
   useEffect(() => {
     if (!roomCode || !uid) return;
     const roomRef = ref(db, `rooms/${roomCode}`);
@@ -791,15 +791,15 @@ function useFirebaseGame() {
       if (!data) return;
       setRoomData(data);
 
-      // íë©´ ì í ë¡ì§
+      // 화면 전환 로직
       const status = data.meta?.status;
       if (status === "waiting") setScreen("lobby");
       else if (status === "tax") {
         setScreen("tax");
-        // ë´ê° ë°ì ì¸ê¸ ì¹´ë ì¶ì 
+        // 내가 받은 세금 카드 추적
         const recv = data.game?.tributeReceived || {};
         setTributeReceived(recv);
-        // taxPhase ê²°ì 
+        // taxPhase 결정
         const myRole = data.game?.ranks?.[uid];
         const tributeDone = data.game?.tributeDone || {};
         const returnDone = data.game?.returnDone || {};
@@ -817,7 +817,7 @@ function useFirebaseGame() {
     return () => off(roomRef);
   }, [roomCode, uid]);
 
-  // ë´ ìí¨ ì¤ìê° êµ¬ë
+  // 내 손패 실시간 구독
   useEffect(() => {
     if (!roomCode || !uid) return;
     const handRef = ref(db, `rooms/${roomCode}/hands/${uid}`);
@@ -827,13 +827,13 @@ function useFirebaseGame() {
     return () => off(handRef);
   }, [roomCode, uid]);
 
-  // ââ ê°ë° ëª¨ë ì²´í¬ (?dev=true) ââââââââââââââââââââââââââââ
-  // (App ì»´í¬ëí¸ ìµìë¨ìì ì²ë¦¬íë¯ë¡ ì¬ê¸°ì  ì ê±°)
+  // ── 개발 모드 체크 (?dev=true) ────────────────────────────
+  // (App 컴포넌트 최상단에서 처리하므로 여기선 제거)
 
-  // ââ íì¤í¸ ëª¨ë: ë´ 4ëªê³¼ í¨ê» ë°© ë§ë¤ê¸° ââââââââââââââââââ
+  // ── 테스트 모드: 봇 4명과 함께 방 만들기 ──────────────────
   async function startTestGame(nickname) {
     const code = generateRoomCode();
-    const botNames = ["ë´-ì² ì", "ë´-ìí¬", "ë´-ë¯¼ì¤", "ë´-ì§ì"];
+    const botNames = ["봇-철수", "봇-영희", "봇-민준", "봇-지수"];
     const botIds = botNames.map((_, i) => `bot-${i}-${Date.now()}`);
     const allPlayers = { [uid]: { nickname, isHost: true, joinedAt: Date.now(), cardCount: 0, rank: null, isConnected: true, isBot: false } };
     botIds.forEach((id, i) => {
@@ -842,10 +842,10 @@ function useFirebaseGame() {
     await set(ref(db, `rooms/${code}`), {
       meta: { hostId: uid, status: "waiting", createdAt: Date.now() },
       players: allPlayers,
-      game: { round: 0, finished: [], log: ["[íì¤í¸ ëª¨ë] ë´ 4ëªê³¼ í¨ê» ììí©ëë¤!"] }
+      game: { round: 0, finished: [], log: ["[테스트 모드] 봇 4명과 함께 시작합니다!"] }
     });
     setRoomCode(code);
-    // ë°ë¡ ê²ì ìì
+    // 바로 게임 시작
     const playerIds = [uid, ...botIds];
     const hands = dealCards(playerIds);
     const updates = {};
@@ -856,18 +856,18 @@ function useFirebaseGame() {
     updates[`rooms/${code}/game/lastPlayerId`] = null;
     updates[`rooms/${code}/game/finished`] = [];
     updates[`rooms/${code}/game/round`] = 1;
-    updates[`rooms/${code}/game/log`] = ["[íì¤í¸ ëª¨ë] ê²ì ìì! ë´ë¤ì ìëì¼ë¡ íë ì´í´ì."];
+    updates[`rooms/${code}/game/log`] = ["[테스트 모드] 게임 시작! 봇들은 자동으로 플레이해요."];
     playerIds.forEach(id => {
       updates[`rooms/${code}/hands/${id}`] = hands[id];
       updates[`rooms/${code}/players/${id}/cardCount`] = hands[id].length;
     });
-    // ë´ ìí¨ë¥¼ game/botHandsì ì ì¥ (ë´ AIì©)
+    // 봇 손패를 game/botHands에 저장 (봇 AI용)
     updates[`rooms/${code}/game/botIds`] = botIds;
     updates[`rooms/${code}/game/isTestMode`] = true;
     await update(ref(db), updates);
   }
 
-  // ââ ë°© ë§ë¤ê¸° ââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── 방 만들기 ──────────────────────────────────────────────
   async function createRoom(nickname) {
     const code = generateRoomCode();
     const roomRef = ref(db, `rooms/${code}`);
@@ -876,20 +876,20 @@ function useFirebaseGame() {
       players: {
         [uid]: { nickname, isHost: true, joinedAt: Date.now(), cardCount: 0, rank: null, isConnected: true }
       },
-      game: { round: 0, finished: [], log: ["ë°©ì´ ìì±ëììµëë¤"] }
+      game: { round: 0, finished: [], log: ["방이 생성되었습니다"] }
     });
     setRoomCode(code);
   }
 
-  // ââ ë°© ì°¸ì¬ ââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── 방 참여 ────────────────────────────────────────────────
   async function joinRoom(nickname, code) {
     const roomRef = ref(db, `rooms/${code}`);
     const snap = await get(roomRef);
-    if (!snap.exists()) return { ok: false, error: "ì¡´ì¬íì§ ìë ë°© ì½ëìì" };
+    if (!snap.exists()) return { ok: false, error: "존재하지 않는 방 코드예요" };
     const data = snap.val();
-    if (data.meta?.status !== "waiting") return { ok: false, error: "ì´ë¯¸ ììë ê²ìì´ìì" };
+    if (data.meta?.status !== "waiting") return { ok: false, error: "이미 시작된 게임이에요" };
     const playerCount = Object.keys(data.players || {}).length;
-    if (playerCount >= 10) return { ok: false, error: "ë°©ì´ ê°ë ì°¼ì´ì (ìµë 10ëª)" };
+    if (playerCount >= 10) return { ok: false, error: "방이 가득 찼어요 (최대 10명)" };
 
     await update(ref(db, `rooms/${code}/players/${uid}`), {
       nickname, isHost: false, joinedAt: Date.now(), cardCount: 0, rank: null, isConnected: true
@@ -898,7 +898,7 @@ function useFirebaseGame() {
     return { ok: true };
   }
 
-  // ââ ê²ì ìì (ë°©ì¥ë§) ââââââââââââââââââââââââââââââââââââ
+  // ── 게임 시작 (방장만) ────────────────────────────────────
   async function startGame() {
     const snap = await get(ref(db, `rooms/${roomCode}/players`));
     const players = snap.val();
@@ -913,7 +913,7 @@ function useFirebaseGame() {
     updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
     updates[`rooms/${roomCode}/game/finished`] = [];
     updates[`rooms/${roomCode}/game/round`] = (roomData?.game?.round ?? 0) + 1;
-    updates[`rooms/${roomCode}/game/log`] = ["ê²ì ìì! ì²« ë²ì§¸ íë ì´ì´ë¶í° ììíì¸ì."];
+    updates[`rooms/${roomCode}/game/log`] = ["게임 시작! 첫 번째 플레이어부터 시작하세요."];
     playerIds.forEach(id => {
       updates[`rooms/${roomCode}/hands/${id}`] = hands[id];
       updates[`rooms/${roomCode}/players/${id}/cardCount`] = hands[id].length;
@@ -921,7 +921,7 @@ function useFirebaseGame() {
     await update(ref(db), updates);
   }
 
-  // ââ ì¹´ë ë´ê¸° âââââââââââââââââââââââââââââââââââââââââââââ
+  // ── 카드 내기 ─────────────────────────────────────────────
   async function playCards(cards) {
     const game = roomData?.game;
     const pile = game?.pile ?? [];
@@ -932,14 +932,14 @@ function useFirebaseGame() {
     const playerNick = roomData?.players?.[uid]?.nickname;
     const newHand = myHand.filter(c => !cards.find(s => s.id === c.id));
     const newFinished = [...(game?.finished ?? [])];
-    const newLog = [...(game?.log ?? []), `${playerNick}ì´(ê°) ${cards.length}ì¥ì ëìµëë¤`];
+    const newLog = [...(game?.log ?? []), `${playerNick}이(가) ${cards.length}장을 냈습니다`];
 
     if (newHand.length === 0 && !newFinished.includes(playerId)) {
       newFinished.push(playerId);
-      newLog.push(`ð ${playerNick}ì´(ê°) í¨ë¥¼ ë¤ ëìµëë¤!`);
+      newLog.push(`🎉 ${playerNick}이(가) 패를 다 냈습니다!`);
     }
 
-    // ë¤ì íë ì´ì´ ê³ì°
+    // 다음 플레이어 계산
     const playerIds = Object.keys(roomData?.players ?? {});
     const idx = playerIds.indexOf(playerId);
     let nextId = playerIds[(idx + 1) % playerIds.length];
@@ -953,12 +953,12 @@ function useFirebaseGame() {
       tries++;
     }
 
-    // ë¼ì´ë ì¢ë£ ì²´í¬
+    // 라운드 종료 체크
     const remaining = playerIds.filter(id => (allHands[id]?.length ?? 0) > 0);
     const isRoundOver = remaining.length <= 1;
     if (isRoundOver && remaining.length === 1) {
       newFinished.push(remaining[0]);
-      newLog.push(`ë¼ì´ë ì¢ë£! ê³ê¸ì´ ê²°ì ë©ëë¤.`);
+      newLog.push(`라운드 종료! 계급이 결정됩니다.`);
     }
 
     const updates = {};
@@ -986,7 +986,7 @@ function useFirebaseGame() {
     return { ok: true };
   }
 
-  // ââ í¨ì¤ âââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── 패스 ─────────────────────────────────────────────────
   async function pass() {
     const game = roomData?.game;
     const playerIds = Object.keys(roomData?.players ?? {});
@@ -995,7 +995,7 @@ function useFirebaseGame() {
     const activePlayers = playerIds.filter(id => (allHands[id]?.length ?? 0) > 0);
     const newPassCount = (game?.passCount ?? 0) + 1;
     const playerNick = roomData?.players?.[uid]?.nickname;
-    const newLog = [...(game?.log ?? []), `${playerNick}ì´(ê°) í¨ì¤íìµëë¤`];
+    const newLog = [...(game?.log ?? []), `${playerNick}이(가) 패스했습니다`];
 
     const idx = playerIds.indexOf(uid);
     let nextId = playerIds[(idx + 1) % playerIds.length];
@@ -1009,7 +1009,7 @@ function useFirebaseGame() {
     const updates = {};
     if (newPassCount >= activePlayers.length - 1) {
       const lastId = game?.lastPlayerId;
-      newLog.push(`ëª¨ë í¨ì¤! ${roomData?.players?.[lastId]?.nickname}ì´(ê°) ìë¡ ììí©ëë¤`);
+      newLog.push(`모두 패스! ${roomData?.players?.[lastId]?.nickname}이(가) 새로 시작합니다`);
       updates[`rooms/${roomCode}/game/pile`] = [];
       updates[`rooms/${roomCode}/game/passCount`] = 0;
       updates[`rooms/${roomCode}/game/currentTurn`] = lastId;
@@ -1022,31 +1022,31 @@ function useFirebaseGame() {
     await update(ref(db), updates);
   }
 
-  // ââ ì¸ê¸: ë°ì¹ê¸° ââââââââââââââââââââââââââââââââââââââââââ
+  // ── 세금: 바치기 ──────────────────────────────────────────
   async function tributeCards(result) {
     if (result.type === "revolution") {
-      // íëª: ì¸ê¸ ë©´ì , ê³ê¸ ì ì§, ë¤ì ë¼ì´ëë¡
+      // 혁명: 세금 면제, 계급 유지, 다음 라운드로
       const updates = {};
       updates[`rooms/${roomCode}/game/revolution`] = true;
       updates[`rooms/${roomCode}/game/log`] = [
         ...(roomData?.game?.log ?? []),
-        `ð¥ ${roomData?.players?.[uid]?.nickname}ì´(ê°) íëªì ì ì¸íìµëë¤!`
+        `🔥 ${roomData?.players?.[uid]?.nickname}이(가) 혁명을 선언했습니다!`
       ];
       updates[`rooms/${roomCode}/meta/status`] = "playing";
-      // ë¤ì ë¼ì´ë ë
+      // 다음 라운드 딜
       await update(ref(db), updates);
       await startGame();
       return;
     }
 
-    // ì¼ë° ì¸ê¸
+    // 일반 세금
     const { cards } = result;
     const myRole = roomData?.game?.ranks?.[uid];
     const receiverId = myRole === "great_slave"
       ? Object.keys(roomData?.game?.ranks ?? {}).find(id => roomData.game.ranks[id] === "dalmuti")
       : Object.keys(roomData?.game?.ranks ?? {}).find(id => roomData.game.ranks[id] === "prime");
 
-    // ë´ ìí¨ìì ì ê±°
+    // 내 손패에서 제거
     const newHand = myHand.filter(c => !cards.find(s => s.id === c.id));
 
     const updates = {};
@@ -1061,14 +1061,14 @@ function useFirebaseGame() {
     await update(ref(db), updates);
   }
 
-  // ââ ì¸ê¸: ëë ¤ì£¼ê¸° ââââââââââââââââââââââââââââââââââââââââ
+  // ── 세금: 돌려주기 ────────────────────────────────────────
   async function returnCards(cards) {
     const myRole = roomData?.game?.ranks?.[uid];
     const targetId = myRole === "dalmuti"
       ? Object.keys(roomData?.game?.ranks ?? {}).find(id => roomData.game.ranks[id] === "great_slave")
       : Object.keys(roomData?.game?.ranks ?? {}).find(id => roomData.game.ranks[id] === "slave");
 
-    // ë°ì ì¸ê¸ ì¹´ëë¥¼ ìí¨ì ì¶ê°, ëë ¤ì¤ ì¹´ë ì ê±°
+    // 받은 세금 카드를 손패에 추가, 돌려줄 카드 제거
     const received = roomData?.game?.tributeReceived?.[uid] ?? [];
     const newHand = [
       ...myHand.filter(c => !cards.find(s => s.id === c.id)),
@@ -1088,7 +1088,7 @@ function useFirebaseGame() {
     updates[`rooms/${roomCode}/players/${targetId}/cardCount`] = targetHand.length;
     updates[`rooms/${roomCode}/game/returnDone/${uid}`] = true;
 
-    // ëª¨ë  ì¸ê¸ì´ ìë£ëëì§ ì²´í¬
+    // 모든 세금이 완료됐는지 체크
     const ranks = roomData?.game?.ranks ?? {};
     const hasDalmuti = Object.values(ranks).includes("dalmuti");
     const hasPrime = Object.values(ranks).includes("prime");
@@ -1100,17 +1100,17 @@ function useFirebaseGame() {
     const allDone = requiredReturns.every(id => returnDone[id]);
 
     if (allDone) {
-      // ì¸ê¸ ìë£ â ê²ì ìì
+      // 세금 완료 → 게임 시작
       updates[`rooms/${roomCode}/meta/status`] = "playing";
       const playerIds = Object.keys(roomData?.players ?? {});
-      // ë¬ë¬´í°ê° ì²« ë²ì§¸ ì 
+      // 달무티가 첫 번째 선
       const dalmutiId = Object.keys(ranks).find(id => ranks[id] === "dalmuti");
       updates[`rooms/${roomCode}/game/currentTurn`] = dalmutiId;
       updates[`rooms/${roomCode}/game/pile`] = [];
       updates[`rooms/${roomCode}/game/passCount`] = 0;
       updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
       updates[`rooms/${roomCode}/game/finished`] = [];
-      updates[`rooms/${roomCode}/game/log`] = ["ì¸ê¸ ìë£! ë¬ë¬´í°ë¶í° ììí©ëë¤."];
+      updates[`rooms/${roomCode}/game/log`] = ["세금 완료! 달무티부터 시작합니다."];
       updates[`rooms/${roomCode}/game/tributeDone`] = {};
       updates[`rooms/${roomCode}/game/returnDone`] = {};
       updates[`rooms/${roomCode}/game/tributeReceived`] = {};
@@ -1119,7 +1119,7 @@ function useFirebaseGame() {
     await update(ref(db), updates);
   }
 
-  // ââ ë¤ì ë¼ì´ë ì¤ë¹ ââââââââââââââââââââââââââââââââââââââ
+  // ── 다음 라운드 준비 ──────────────────────────────────────
   async function readyForNext() {
     const snap = await get(ref(db, `rooms/${roomCode}/game/readyForNext`));
     const readyList = snap.val() || [];
@@ -1131,7 +1131,7 @@ function useFirebaseGame() {
     updates[`rooms/${roomCode}/game/readyForNext`] = newList;
 
     if (newList.length >= playerCount) {
-      // ëª¨ë ì¤ë¹ â ì¸ê¸ ë¨ê³ë¡
+      // 모두 준비 → 세금 단계로
       const ranks = roomData?.game?.ranks ?? {};
       const hasDalmuti = Object.values(ranks).includes("dalmuti");
       const hasPrime = Object.values(ranks).includes("prime");
@@ -1141,7 +1141,7 @@ function useFirebaseGame() {
         updates[`rooms/${roomCode}/game/returnDone`] = {};
         updates[`rooms/${roomCode}/game/tributeReceived`] = {};
       } else {
-        // 1ë¼ì´ëë¼ ê³ê¸ ìì â ë°ë¡ ë
+        // 1라운드라 계급 없음 → 바로 딜
         await update(ref(db), updates);
         await startGame();
         return;
@@ -1150,7 +1150,7 @@ function useFirebaseGame() {
     await update(ref(db), updates);
   }
 
-  // ââ íì ë°ì´í° ì¡°ë¦½ ââââââââââââââââââââââââââââââââââââââ
+  // ── 파생 데이터 조립 ──────────────────────────────────────
   const players = Object.entries(roomData?.players ?? {}).map(([id, p]) => ({
     id, ...p, rank: roomData?.game?.ranks?.[id] ?? p.rank
   }));
@@ -1178,11 +1178,11 @@ function useFirebaseGame() {
 }
 
 // ================================================================
-//  10. ë£¨í¸ ì±
+//  10. 루트 앱
 // ================================================================
 
-// ì± ë¡ë ìì  ê°ë°ëª¨ë (í­ 5ë²ì¼ë¡ íì±í)
-const IS_DEV_MODE = false; // ìë MainScreenìì í­ì¼ë¡ íì±í
+// 앱 로드 시점 개발모드 (탭 5번으로 활성화)
+const IS_DEV_MODE = false; // 아래 MainScreen에서 탭으로 활성화
 
 export default function App() {
   const {
@@ -1207,8 +1207,8 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-5xl animate-bounce mb-4">ð</div>
-          <p className="text-white/50 text-sm animate-pulse">Firebase ì°ê²° ì¤...</p>
+          <div className="text-5xl animate-bounce mb-4">👑</div>
+          <p className="text-white/50 text-sm animate-pulse">Firebase 연결 중...</p>
         </div>
       </div>
     );
@@ -1259,7 +1259,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-      <p className="text-white/30 text-sm">ë¡ë© ì¤...</p>
+      <p className="text-white/30 text-sm">로딩 중...</p>
     </div>
   );
 }
