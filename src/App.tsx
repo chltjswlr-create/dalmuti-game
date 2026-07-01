@@ -107,17 +107,36 @@ function dealCards(playerIds) {
 
 function validatePlay(cards, pile) {
   if (!cards || cards.length === 0) return { ok: false, error: "카드를 선택하세요" };
+  
   const nonJoker = cards.filter((c) => !c.joker);
+  const jokers = cards.filter((c) => c.joker);
+
+  // 조커는 단독으로 낼 수 없음
+  if (nonJoker.length === 0) return { ok: false, error: "조커는 단독으로 낼 수 없어요. 숫자 카드와 함께 내야 해요" };
+
+  // 같은 숫자 카드만 가능
   if (nonJoker.length > 1 && new Set(nonJoker.map((c) => c.rank)).size > 1)
     return { ok: false, error: "같은 숫자 카드만 낼 수 있어요" };
+
+  const myRank = nonJoker[0].rank;
+
   if (pile && pile.length > 0) {
+    // 장수 체크
     if (cards.length !== pile.length)
       return { ok: false, error: `바닥과 같은 ${pile.length}장을 내야 해요` };
-    const myRank = nonJoker[0]?.rank;
-    const pileRank = pile.find((c) => !c.joker)?.rank ?? pile[0]?.rank;
-    if (myRank && pileRank && myRank >= pileRank)
-      return { ok: false, error: "더 낮은(강한) 숫자여야 해요" };
+
+    // 바닥의 실제 숫자 계산 (바닥도 조커 포함일 수 있음)
+    const pileNonJoker = pile.filter((c) => !c.joker);
+    const pileRank = pileNonJoker[0]?.rank;
+
+    // 바닥이 조커만이면 → 낼 수 없음 (조커만 있는 바닥은 있을 수 없지만 방어)
+    if (!pileRank) return { ok: false, error: "바닥 카드를 확인할 수 없어요" };
+
+    // 내 카드가 바닥보다 낮은(강한) 숫자여야 함
+    if (myRank >= pileRank)
+      return { ok: false, error: `${pileRank}번보다 낮은 숫자를 내야 해요` };
   }
+
   return { ok: true };
 }
 
@@ -427,12 +446,16 @@ function GameTable({ gs, myId, onPlay, onPass }) {
   const validMsg = (() => {
     if (selected.length === 0) return null;
     const nj = selected.filter(c => !c.joker);
+    // 조커만 단독으로 낼 수 없음
+    if (nj.length === 0) return "조커는 단독으로 낼 수 없어요";
     if (nj.length > 1 && new Set(nj.map(c => c.rank)).size > 1) return "같은 숫자 카드만 낼 수 있어요";
     if (pile && pile.length > 0) {
       if (selected.length !== pile.length) return `바닥과 같은 ${pile.length}장을 내야 해요`;
       const myRank = nj[0]?.rank;
-      const pileRank = pile.find(c => !c.joker)?.rank;
-      if (myRank && pileRank && myRank >= pileRank) return "더 낮은(강한) 숫자여야 해요";
+      const pileNonJoker = pile.filter(c => !c.joker);
+      const pileRank = pileNonJoker[0]?.rank;
+      if (!pileRank) return "바닥 카드를 확인할 수 없어요";
+      if (myRank >= pileRank) return `${pileRank}번보다 낮은 숫자를 내야 해요`;
     }
     return null;
   })();
@@ -885,30 +908,31 @@ function useFirebaseGame() {
 
       // 낼 수 있는 카드 찾기
       function findBestPlay(hand, pile) {
+        const nonJokerHand = hand.filter(c => !c.joker);
+        const jokers = hand.filter(c => c.joker);
+
         if (!pile.length) {
-          // 바닥이 비어있으면 가장 약한 카드(숫자 높은) 중 같은 숫자로 가장 많이 낼 수 있는 것
+          // 바닥이 비어있으면 숫자 카드 중 가장 약한(높은 숫자) 그룹 선택
           const groups = {};
-          hand.forEach(c => {
-            const key = c.joker ? 'joker' : c.rank;
-            if (!groups[key]) groups[key] = [];
-            groups[key].push(c);
+          nonJokerHand.forEach(c => {
+            if (!groups[c.rank]) groups[c.rank] = [];
+            groups[c.rank].push(c);
           });
-          // 가장 높은 숫자(약한) 그룹 선택
-          const sorted = Object.entries(groups).sort((a, b) => {
-            const ra = a[0] === 'joker' ? 0 : parseInt(a[0]);
-            const rb = b[0] === 'joker' ? 0 : parseInt(b[0]);
-            return rb - ra; // 높은 숫자(약한 카드) 먼저
-          });
+          const sorted = Object.entries(groups).sort((a, b) => parseInt(b[0]) - parseInt(a[0]));
           return sorted[0]?.[1] || null;
         }
 
         const pileCount = pile.length;
-        const pileRank = pile.find(c => !c.joker)?.rank ?? 0;
+        const pileNonJoker = pile.filter(c => !c.joker);
+        const pileRank = pileNonJoker[0]?.rank;
+        if (!pileRank) return null; // 바닥 rank 불명확하면 패스
 
         // 바닥과 같은 장수이면서 더 낮은 숫자 찾기
         const groups = {};
-        hand.forEach(c => {
-          if (c.joker) return;
+        nonJokerHand.forEach(c => {
+          if (!groups[c.rank]) groups[c.rank] = [];
+          groups[c.rank].push(c);
+        });
           if (!groups[c.rank]) groups[c.rank] = [];
           groups[c.rank].push(c);
         });
@@ -933,10 +957,7 @@ function useFirebaseGame() {
               }
             }
           });
-          // 조커만으로
-          if (jokers.length >= pileCount && pileRank > 0) {
-            candidates.push(jokers.slice(0, pileCount));
-          }
+          // 조커만으로는 낼 수 없으므로 제거
         }
 
         if (!candidates.length) return null;
