@@ -2332,6 +2332,14 @@ function DrawingScreen({ players, selfId, drawnCards, onDraw }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-emerald-950 flex flex-col items-center justify-center p-6">
+      <style>{`
+        @keyframes cardFlip {
+          0% { transform: scale(0.5) rotateY(90deg); opacity: 0; }
+          60% { transform: scale(1.1) rotateY(0deg); opacity: 1; }
+          100% { transform: scale(1) rotateY(0deg); opacity: 1; }
+        }
+        .card-flip { animation: cardFlip 0.5s ease-out forwards; }
+      `}</style>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">🎴</div>
@@ -2339,6 +2347,7 @@ function DrawingScreen({ players, selfId, drawnCards, onDraw }) {
           <p className="text-white/50 text-sm mt-2">카드를 한 장씩 뽑아 계급을 정합니다</p>
           <p className="text-white/30 text-xs mt-1">낮은 숫자 = 높은 계급 (조커 = 13번)</p>
         </div>
+
         {!myDrawn ? (
           <div className="flex flex-col items-center gap-4 mb-6">
             <button onClick={onDraw}
@@ -2350,18 +2359,21 @@ function DrawingScreen({ players, selfId, drawnCards, onDraw }) {
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3 mb-6">
-            <div className="w-32 h-44 rounded-2xl shadow-2xl flex flex-col items-center justify-center gap-2 pop-in"
+            <div className="w-32 h-44 rounded-2xl shadow-2xl flex flex-col items-center justify-center gap-2 card-flip"
               style={{ background: myDrawn.rank <= 4 ? '#7f1d1d' : myDrawn.rank <= 7 ? '#713f12' : myDrawn.rank <= 10 ? '#1e3a5f' : '#1a0a2e' }}>
-              <span className="text-4xl">{myDrawn.rank === 13 ? '🃏' : RANK_EMOJI[myDrawn.rank - 1]}</span>
+              <span className="text-4xl">{myDrawn.rank === 13 ? '🃏' : (RANK_EMOJI[myDrawn.rank - 1] ?? '🃏')}</span>
               <span className="text-white font-black text-2xl">{myDrawn.rank === 13 ? 'J' : myDrawn.rank}</span>
-              <span className="text-white/80 text-xs font-bold">{RANK_NAME[myDrawn.rank]}</span>
+              <span className="text-white/80 text-xs font-bold">{RANK_NAME[myDrawn.rank] ?? ''}</span>
             </div>
             <p className="text-emerald-400 font-bold">✅ 뽑기 완료!</p>
           </div>
         )}
+
         <div className="bg-black/30 rounded-2xl p-4 space-y-2">
-          <p className="text-white/40 text-xs uppercase tracking-widest mb-3">뽑기 현황 ({Object.keys(drawnCards ?? {}).length}/{players.length})</p>
-          {players.map(p => {
+          <p className="text-white/40 text-xs uppercase tracking-widest mb-3">
+            뽑기 현황 ({Object.keys(drawnCards ?? {}).length}/{(players ?? []).length})
+          </p>
+          {(players ?? []).map(p => {
             const drawn = drawnCards?.[p.id];
             return (
               <div key={p.id} className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/5">
@@ -2370,8 +2382,8 @@ function DrawingScreen({ players, selfId, drawnCards, onDraw }) {
                   {p.id === selfId && <span className="text-emerald-400 text-xs">나</span>}
                 </div>
                 {drawn ? (
-                  <span className="text-yellow-400 font-black">
-                    {drawn.rank === 13 ? '🃏 조커' : `${drawn.rank}번 · ${RANK_NAME[drawn.rank]}`}
+                  <span className="text-yellow-400 font-black text-sm">
+                    {drawn.rank === 13 ? '🃏 조커' : `${drawn.rank}번 · ${RANK_NAME[drawn.rank] ?? ''}`}
                   </span>
                 ) : (
                   <span className="text-white/20 text-sm">대기 중...</span>
