@@ -933,9 +933,6 @@ function useFirebaseGame() {
           if (!groups[c.rank]) groups[c.rank] = [];
           groups[c.rank].push(c);
         });
-          if (!groups[c.rank]) groups[c.rank] = [];
-          groups[c.rank].push(c);
-        });
 
         const jokers = hand.filter(c => c.joker);
         const candidates = [];
