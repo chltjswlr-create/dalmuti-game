@@ -514,8 +514,8 @@ function GameTable({ gs, myId, onPlay, onPass }) {
         }, 300);
       }
 
-      if (latest.includes("장을 냈습니다")) {
-        const countMatch = latest.match(/(\d+)장을 냈습니다/);
+      if (latest.includes("을 냈습니다") || latest.includes("장을 냈습니다")) {
+        const countMatch = latest.match(/(\d+)장을? 냈습니다/) ?? latest.match(/카드 (\d+)장/);
         const count = parseInt(countMatch?.[1] ?? 1);
         const isMyPlay = self?.nickname && latest.startsWith(self.nickname);
         setFlyAnim({ fromBottom: !!isMyPlay, count });
@@ -1692,7 +1692,7 @@ function useFirebaseGame() {
         const newFinished = [...(game.finished ?? [])];
         const nonJokerBot = cardsToPlay.filter(c => !c.joker);
         const botCardDesc = nonJokerBot.length > 0 ? `${nonJokerBot[0].rank}번 카드 ${cardsToPlay.length}장` : `조커 ${cardsToPlay.length}장`;
-        const newLog = [...(game.log ?? []), `${botNick}이(가) ${botCardDesc} ${cardsToPlay.length}장을 냈습니다`];
+        const newLog = [...(game.log ?? []), `${botNick}이(가) ${botCardDesc}을 냈습니다`];
 
         if (!newBotHand.length && !newFinished.includes(currentTurn)) {
           newFinished.push(currentTurn);
@@ -1920,7 +1920,7 @@ function useFirebaseGame() {
     const nonJoker = cards.filter(c => !c.joker);
     const cardRank = nonJoker[0]?.rank;
     const cardDesc = cards.every(c => c.joker) ? `조커 ${cards.length}장` : `${cardRank}번 카드 ${cards.length}장`;
-    const newLog = [...(game?.log ?? []), `${playerNick}이(가) ${cardDesc} ${cards.length}장을 냈습니다`];
+    const newLog = [...(game?.log ?? []), `${playerNick}이(가) ${cardDesc}을 냈습니다`];
 
     if (newHand.length === 0 && !newFinished.includes(playerId)) {
       newFinished.push(playerId);
