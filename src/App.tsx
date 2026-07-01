@@ -221,39 +221,76 @@ function generateRoomCode() {
 //  3. UI 컴포넌트
 // ================================================================
 
-// ── 카드별 역할 및 상세 SVG 아이콘 ──────────────────────────
-const CARD_SVG = {
-  1:  (s) => <svg viewBox="0 0 44 64"><defs><radialGradient id="g1" cx="50%" cy="30%"><stop offset="0%" stopColor="#f59e0b"/><stop offset="100%" stopColor="#b45309"/></radialGradient></defs><rect width="44" height="64" rx="4" fill="url(#g1)"/><circle cx="22" cy="20" r="11" fill="rgba(0,0,0,0.15)"/><text x="22" y="25" textAnchor="middle" fontSize="14" fill="#7c2d12">👑</text>{!s&&<text x="22" y="52" textAnchor="middle" fontSize="5.5" fill="#7c2d12" fontWeight="bold">달무티</text>}<text x="3" y="9" fontSize="7" fill="#7c2d12" fontWeight="bold">1</text><text x="41" y="58" fontSize="7" fill="#7c2d12" fontWeight="bold" transform="rotate(180,41,62)">1</text></svg>,
-  2:  (s) => <svg viewBox="0 0 44 64"><rect width="44" height="64" rx="4" fill="#7f1d1d"/><rect x="2" y="2" width="40" height="60" rx="3" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1"/><line x1="22" y1="10" x2="22" y2="32" stroke="white" strokeWidth="3"/><line x1="13" y1="18" x2="31" y2="18" stroke="white" strokeWidth="3"/><circle cx="22" cy="10" r="3" fill="white"/>{!s&&<text x="22" y="52" textAnchor="middle" fontSize="5.5" fill="white" fontWeight="bold">대주교</text>}<text x="3" y="9" fontSize="7" fill="white" fontWeight="bold">2</text><text x="41" y="58" fontSize="7" fill="white" fontWeight="bold" transform="rotate(180,41,62)">2</text></svg>,
-  3:  (s) => <svg viewBox="0 0 44 64"><rect width="44" height="64" rx="4" fill="#991b1b"/><rect x="12" y="8" width="20" height="22" fill="rgba(255,255,255,0.9)" rx="1"/><rect x="8" y="28" width="28" height="4" fill="rgba(255,255,255,0.9)"/><rect x="15" y="2" width="5" height="8" fill="rgba(255,255,255,0.9)"/><rect x="24" y="2" width="5" height="8" fill="rgba(255,255,255,0.9)"/><rect x="18" y="16" width="8" height="14" fill="#991b1b"/>{!s&&<text x="22" y="52" textAnchor="middle" fontSize="5.5" fill="white" fontWeight="bold">귀족</text>}<text x="3" y="9" fontSize="7" fill="white" fontWeight="bold">3</text><text x="41" y="58" fontSize="7" fill="white" fontWeight="bold" transform="rotate(180,41,62)">3</text></svg>,
-  4:  (s) => <svg viewBox="0 0 44 64"><rect width="44" height="64" rx="4" fill="#9f1239"/><circle cx="22" cy="17" r="7" fill="rgba(255,255,255,0.9)"/><path d="M12 32 Q22 24 32 32 L30 36 Q22 30 14 36 Z" fill="rgba(255,255,255,0.9)"/><circle cx="19" cy="15" r="1.5" fill="#9f1239"/><circle cx="25" cy="15" r="1.5" fill="#9f1239"/>{!s&&<text x="22" y="52" textAnchor="middle" fontSize="5.5" fill="white" fontWeight="bold">귀족부인</text>}<text x="3" y="9" fontSize="7" fill="white" fontWeight="bold">4</text><text x="41" y="58" fontSize="7" fill="white" fontWeight="bold" transform="rotate(180,41,62)">4</text></svg>,
-  5:  (s) => <svg viewBox="0 0 44 64"><defs><linearGradient id="g5" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#92400e"/><stop offset="100%" stopColor="#78350f"/></linearGradient></defs><rect width="44" height="64" rx="4" fill="url(#g5)"/><circle cx="22" cy="17" r="6" fill="rgba(0,0,0,0.2)"/><rect x="16" y="23" width="12" height="10" rx="2" fill="rgba(0,0,0,0.2)"/><rect x="14" y="10" width="16" height="4" rx="1" fill="rgba(0,0,0,0.25)"/>{!s&&<text x="22" y="52" textAnchor="middle" fontSize="5.5" fill="#7c2d12" fontWeight="bold">총리</text>}<text x="3" y="9" fontSize="7" fill="#7c2d12" fontWeight="bold">5</text><text x="41" y="58" fontSize="7" fill="#7c2d12" fontWeight="bold" transform="rotate(180,41,62)">5</text></svg>,
-  6:  (s) => <svg viewBox="0 0 44 64"><rect width="44" height="64" rx="4" fill="#14532d"/><circle cx="22" cy="18" r="8" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.5)" strokeWidth="1"/><circle cx="22" cy="18" r="4" fill="rgba(255,255,255,0.9)"/><line x1="22" y1="8" x2="22" y2="28" stroke="rgba(255,255,255,0.4)" strokeWidth="1"/><line x1="12" y1="18" x2="32" y2="18" stroke="rgba(255,255,255,0.4)" strokeWidth="1"/>{!s&&<text x="22" y="52" textAnchor="middle" fontSize="5.5" fill="white" fontWeight="bold">점성술사</text>}<text x="3" y="9" fontSize="7" fill="white" fontWeight="bold">6</text><text x="41" y="58" fontSize="7" fill="white" fontWeight="bold" transform="rotate(180,41,62)">6</text></svg>,
-  7:  (s) => <svg viewBox="0 0 44 64"><rect width="44" height="64" rx="4" fill="#1a2e05"/><line x1="22" y1="6" x2="22" y2="30" stroke="rgba(255,255,255,0.9)" strokeWidth="3" strokeLinecap="round"/><line x1="22" y1="6" x2="16" y2="14" stroke="rgba(255,255,255,0.9)" strokeWidth="2.5" strokeLinecap="round"/><line x1="22" y1="6" x2="28" y2="14" stroke="rgba(255,255,255,0.9)" strokeWidth="2.5" strokeLinecap="round"/><ellipse cx="22" cy="31" rx="5" ry="3" fill="rgba(255,255,255,0.7)"/>{!s&&<text x="22" y="52" textAnchor="middle" fontSize="5.5" fill="white" fontWeight="bold">기사</text>}<text x="3" y="9" fontSize="7" fill="white" fontWeight="bold">7</text><text x="41" y="58" fontSize="7" fill="white" fontWeight="bold" transform="rotate(180,41,62)">7</text></svg>,
-  8:  (s) => <svg viewBox="0 0 44 64"><rect width="44" height="64" rx="4" fill="#1e3a5f"/><circle cx="18" cy="16" r="4" fill="rgba(255,255,255,0.8)"/><line x1="18" y1="16" x2="30" y2="28" stroke="rgba(255,255,255,0.9)" strokeWidth="2"/><circle cx="30" cy="28" r="3" fill="rgba(255,255,255,0.6)" stroke="rgba(255,255,255,0.9)" strokeWidth="1"/>{!s&&<text x="22" y="52" textAnchor="middle" fontSize="5.5" fill="white" fontWeight="bold">재봉사</text>}<text x="3" y="9" fontSize="7" fill="white" fontWeight="bold">8</text><text x="41" y="58" fontSize="7" fill="white" fontWeight="bold" transform="rotate(180,41,62)">8</text></svg>,
-  9:  (s) => <svg viewBox="0 0 44 64"><rect width="44" height="64" rx="4" fill="#292524"/><rect x="10" y="24" width="24" height="8" rx="1" fill="rgba(255,255,255,0.7)"/><rect x="16" y="16" width="4" height="10" fill="rgba(255,255,255,0.9)"/><rect x="24" y="16" width="4" height="10" fill="rgba(255,255,255,0.9)"/><line x1="14" y1="12" x2="20" y2="16" stroke="rgba(255,255,255,0.7)" strokeWidth="2"/><line x1="30" y1="12" x2="24" y2="16" stroke="rgba(255,255,255,0.7)" strokeWidth="2"/>{!s&&<text x="22" y="52" textAnchor="middle" fontSize="5.5" fill="white" fontWeight="bold">농부</text>}<text x="3" y="9" fontSize="7" fill="white" fontWeight="bold">9</text><text x="41" y="58" fontSize="7" fill="white" fontWeight="bold" transform="rotate(180,41,62)">9</text></svg>,
-  10: (s) => <svg viewBox="0 0 44 64"><rect width="44" height="64" rx="4" fill="#0a0f1a"/><circle cx="22" cy="14" r="7" fill="rgba(255,255,255,0.8)"/><rect x="10" y="14" width="24" height="3" rx="1" fill="rgba(255,255,255,0.6)"/><ellipse cx="22" cy="22" rx="10" ry="3" fill="rgba(255,255,255,0.4)"/>{!s&&<text x="22" y="52" textAnchor="middle" fontSize="5.5" fill="white" fontWeight="bold">요리사</text>}<text x="3" y="9" fontSize="7" fill="white" fontWeight="bold">10</text><text x="41" y="58" fontSize="7" fill="white" fontWeight="bold" transform="rotate(180,41,62)">10</text></svg>,
-  11: (s) => <svg viewBox="0 0 44 64"><rect width="44" height="64" rx="4" fill="#111827"/><circle cx="16" cy="15" r="4" fill="rgba(255,255,255,0.5)" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5"/><circle cx="28" cy="15" r="4" fill="rgba(255,255,255,0.5)" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5"/><line x1="20" y1="15" x2="24" y2="15" stroke="rgba(255,255,255,0.7)" strokeWidth="2"/>{!s&&<text x="22" y="52" textAnchor="middle" fontSize="5.5" fill="rgba(255,255,255,0.7)" fontWeight="bold">노예</text>}<text x="3" y="9" fontSize="7" fill="rgba(255,255,255,0.6)" fontWeight="bold">11</text><text x="41" y="58" fontSize="7" fill="rgba(255,255,255,0.6)" fontWeight="bold" transform="rotate(180,41,62)">11</text></svg>,
-  12: (s) => <svg viewBox="0 0 44 64"><rect width="44" height="64" rx="4" fill="#0a0f1a"/><circle cx="15" cy="13" r="3" fill="rgba(255,255,255,0.3)" stroke="rgba(255,255,255,0.4)" strokeWidth="1"/><circle cx="29" cy="13" r="3" fill="rgba(255,255,255,0.3)" stroke="rgba(255,255,255,0.4)" strokeWidth="1"/><circle cx="22" cy="23" r="3" fill="rgba(255,255,255,0.3)" stroke="rgba(255,255,255,0.4)" strokeWidth="1"/><line x1="18" y1="13" x2="26" y2="13" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5"/><line x1="17" y1="16" x2="20" y2="20" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5"/><line x1="27" y1="16" x2="24" y2="20" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5"/>{!s&&<text x="22" y="52" textAnchor="middle" fontSize="5.5" fill="rgba(255,255,255,0.4)" fontWeight="bold">대노예</text>}<text x="3" y="9" fontSize="7" fill="rgba(255,255,255,0.4)" fontWeight="bold">12</text><text x="41" y="58" fontSize="7" fill="rgba(255,255,255,0.4)" fontWeight="bold" transform="rotate(180,41,62)">12</text></svg>,
-  joker: (s) => <svg viewBox="0 0 44 64"><defs><linearGradient id="gj" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#4c1d95"/><stop offset="100%" stopColor="#831843"/></linearGradient></defs><rect width="44" height="64" rx="4" fill="url(#gj)"/><rect x="2" y="2" width="40" height="60" rx="3" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1"/><polygon points="22,6 26,16 37,16 28,23 31,34 22,27 13,34 16,23 7,16 18,16" fill="rgba(255,255,255,0.9)"/>{!s&&<text x="22" y="52" textAnchor="middle" fontSize="5.5" fill="rgba(255,255,255,0.9)" fontWeight="bold">어릿광대</text>}</svg>,
+// ── 카드 색상 & SVG ─────────────────────────────────────────
+const CARD_COLORS = {
+  1:  { bg: "#b45309", text: "#fef3c7" },
+  2:  { bg: "#7f1d1d", text: "#fecaca" },
+  3:  { bg: "#881337", text: "#fce7f3" },
+  4:  { bg: "#9a3412", text: "#ffedd5" },
+  5:  { bg: "#713f12", text: "#fef9c3" },
+  6:  { bg: "#14532d", text: "#dcfce7" },
+  7:  { bg: "#064e3b", text: "#d1fae5" },
+  8:  { bg: "#164e63", text: "#e0f2fe" },
+  9:  { bg: "#1e3a5f", text: "#dbeafe" },
+  10: { bg: "#312e81", text: "#e0e7ff" },
+  11: { bg: "#3b0764", text: "#f3e8ff" },
+  12: { bg: "#1a0a2e", text: "#e9d5ff" },
+};
+
+const CARD_DATA = {
+  1:  { name: "달무티",   emoji: "👑" },
+  2:  { name: "대주교",   emoji: "✝" },
+  3:  { name: "귀족",     emoji: "🏰" },
+  4:  { name: "귀족부인", emoji: "👸" },
+  5:  { name: "총리",     emoji: "🤵" },
+  6:  { name: "점성술사", emoji: "🔮" },
+  7:  { name: "기사",     emoji: "⚔" },
+  8:  { name: "재봉사",   emoji: "🧵" },
+  9:  { name: "농부",     emoji: "🌾" },
+  10: { name: "요리사",   emoji: "🍳" },
+  11: { name: "노예",     emoji: "🔗" },
+  12: { name: "대노예",   emoji: "⛓" },
 };
 
 // ── 카드 ──────────────────────────────────────────────────────
 function Card({ card, selected, onClick, disabled, size = "md" }) {
   const isJoker = card.joker;
   const small = size === "sm";
-  const sz = small ? "w-12 h-16" : "w-16 h-24";
-  const svgFn = isJoker ? CARD_SVG.joker : CARD_SVG[card.rank];
+  const sz = small ? "w-10 h-14" : "w-12 h-[72px]";
+  const col = isJoker ? { bg: "#4c1d95", text: "#f5d0fe" } : (CARD_COLORS[card.rank] ?? { bg: "#1a1a2e", text: "#e0e7ff" });
+  const data = isJoker ? null : CARD_DATA[card.rank];
 
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`relative ${sz} rounded-xl shadow-lg overflow-hidden select-none transition-all duration-150
+      className={`relative ${sz} rounded-xl shadow-lg overflow-hidden select-none transition-all duration-150 flex flex-col
         ${selected ? "ring-2 ring-white scale-110 -translate-y-3 shadow-2xl" : "ring-0"}
-        ${disabled ? "cursor-not-allowed" : "hover:-translate-y-1 hover:shadow-xl cursor-pointer"}`}
+        ${disabled ? "cursor-not-allowed opacity-90" : "hover:-translate-y-1 hover:shadow-xl cursor-pointer"}`}
+      style={{ background: col.bg }}
     >
-      {svgFn ? svgFn(small) : <div className="w-full h-full bg-slate-500"/>}
+      {/* 상단 장식 */}
+      <div className="absolute inset-0 opacity-20" style={{
+        background: `radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.4) 0%, transparent 60%)`
+      }}/>
+      {/* 상단 숫자 */}
+      {!isJoker && <span className="absolute top-1 left-1.5 text-[9px] font-black" style={{ color: col.text, opacity: 0.8 }}>{card.rank}</span>}
+      {/* 중앙 이모지 */}
+      <div className="flex-1 flex items-center justify-center">
+        <span className={`${small ? "text-lg" : "text-2xl"} leading-none`}>
+          {isJoker ? "🃏" : data?.emoji}
+        </span>
+      </div>
+      {/* 하단 직업명 */}
+      {!small && (
+        <div className="pb-0.5 text-center">
+          <span className="text-[6px] font-bold" style={{ color: col.text, opacity: 0.85 }}>
+            {isJoker ? "어릿광대" : data?.name}
+          </span>
+        </div>
+      )}
+      {/* 하단 숫자 뒤집힘 */}
+      {!isJoker && <span className="absolute bottom-1 right-1.5 text-[9px] font-black rotate-180" style={{ color: col.text, opacity: 0.8 }}>{card.rank}</span>}
       {selected && (
         <span className="absolute -top-1 -right-1 bg-white text-blue-600 rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold shadow z-10">✓</span>
       )}
@@ -263,24 +300,23 @@ function Card({ card, selected, onClick, disabled, size = "md" }) {
 
 
 // ── 바닥 카드 ─────────────────────────────────────────────────
-const CARD_NAME = { 1:"달무티",2:"대주교",3:"귀족",4:"귀족부인",5:"총리",6:"점성술사",7:"기사",8:"재봉사",9:"농부",10:"요리사",11:"노예",12:"대노예" };
 function Pile({ pile }) {
   if (!pile || pile.length === 0)
     return (
-      <div className="flex items-center justify-center w-44 h-24 rounded-2xl border-2 border-dashed border-white/20 text-white/30 text-sm">
+      <div className="flex items-center justify-center w-44 h-24 rounded-2xl border-2 border-dashed border-white/20 text-white/30 text-sm transition-all">
         바닥 비어있음
       </div>
     );
   const pileRank = pile.find(c => !c.joker)?.rank;
   return (
     <div className="flex flex-col items-center gap-2">
-      <div className="flex items-center justify-center gap-2 flex-wrap max-w-xs">
+      <div className="flex items-center justify-center gap-2 flex-wrap max-w-xs pile-appear">
         {pile.map((card) => (
           <Card key={card.id} card={card} disabled size="sm" />
         ))}
       </div>
-      <div className="text-white/70 text-sm font-semibold">
-        {pile.length}장 · {pileRank ? `${pileRank}번 ${CARD_NAME[pileRank] ?? ""}` : "조커"}
+      <div className="text-white/70 text-sm font-semibold slide-in">
+        {pile.length}장 · {pileRank ? `${pileRank}번 ${CARD_DATA[pileRank]?.name ?? ""}` : "조커"}
       </div>
     </div>
   );
@@ -289,8 +325,8 @@ function Pile({ pile }) {
 // ── 상대 플레이어 토큰 ────────────────────────────────────────
 function PlayerToken({ player, isCurrentTurn }) {
   return (
-    <div className={`flex flex-col items-center gap-1 px-2 py-2 rounded-xl transition-all min-w-[64px]
-      ${isCurrentTurn ? "bg-yellow-400/20 ring-2 ring-yellow-400 scale-105" : "bg-white/5"}`}>
+    <div className={`flex flex-col items-center gap-1 px-2 py-2 rounded-xl transition-all duration-300 min-w-[64px]
+      ${isCurrentTurn ? "bg-yellow-400/20 ring-2 ring-yellow-400 scale-105 turn-glow" : "bg-white/5"}`}>
       <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white
         ${player.rank ? `bg-gradient-to-br ${RANK_COLOR[player.rank]}` : "bg-slate-600"}`}>
         {player.nickname[0]}
@@ -435,7 +471,8 @@ function GameTable({ gs, myId, onPlay, onPass }) {
   const [selected, setSelected] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [dalmutEffect, setDalmutEffect] = useState(null);
-  const [flyAnim, setFlyAnim] = useState(null); // { fromBottom: bool, count: number }
+  const [flyAnim, setFlyAnim] = useState(null);
+  const [autoClearEffect, setAutoClearEffect] = useState(null); // { winner: string }
   const { players, pile, currentTurn, round, log, ranks } = gs;
   const myHand = gs.myHand || [];
   const isMyTurn = currentTurn === myId;
@@ -459,11 +496,19 @@ function GameTable({ gs, myId, onPlay, onPass }) {
     newLogs.forEach(latest => {
       if (!latest) return;
       if (latest.includes("✨ 1번 카드")) {
-        const match = latest.match(/^(.+?)이\(가\)/);
+        const match = latest.match(/^✨ 1번 카드! (.+?)이\(가\)/);
         const nickname = match?.[1] ?? "플레이어";
-        setDalmutEffect({ nickname });
-        setTimeout(() => setDalmutEffect(null), 3000);
+        // 카드 날아가는 애니메이션 후에 이펙트 표시
+        setTimeout(() => {
+          setDalmutEffect({ nickname });
+          setTimeout(() => setDalmutEffect(null), 3000);
+        }, 400);
         playSound('dalmuti');
+      } else if (latest.includes("아무도 낼 수 없어요")) {
+        const match = latest.match(/아무도 낼 수 없어요! (.+?)이\(가\)/);
+        const winner = match?.[1] ?? "플레이어";
+        setAutoClearEffect({ winner });
+        setTimeout(() => setAutoClearEffect(null), 2500);
       } else if (latest.includes("장을 냈습니다")) {
         const countMatch = latest.match(/(\d+)장을 냈습니다/);
         const count = parseInt(countMatch?.[1] ?? 1);
@@ -707,36 +752,78 @@ function GameTable({ gs, myId, onPlay, onPass }) {
     <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-green-900 to-teal-950 flex flex-col">
       <style>{`
         @keyframes flyUp {
-          0%   { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
-          70%  { transform: translateY(-30vh) scale(0.5) rotate(-5deg); opacity: 0.8; }
-          100% { transform: translateY(-38vh) scale(0.2) rotate(-10deg); opacity: 0; }
+          0%   { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; filter: brightness(1.2); }
+          30%  { transform: translateY(-15vh) scale(0.85) rotate(-3deg); opacity: 1; }
+          70%  { transform: translateY(-32vh) scale(0.5) rotate(-6deg); opacity: 0.6; }
+          100% { transform: translateY(-40vh) scale(0.15) rotate(-10deg); opacity: 0; }
         }
         @keyframes flyDown {
-          0%   { transform: translateY(0) scale(0.3) rotate(10deg); opacity: 0.8; }
-          100% { transform: translateY(20vh) scale(1) rotate(0deg); opacity: 0; }
+          0%   { transform: translateY(-8vh) scale(0.2) rotate(8deg); opacity: 0; }
+          30%  { transform: translateY(-2vh) scale(0.6) rotate(4deg); opacity: 0.8; }
+          70%  { transform: translateY(10vh) scale(0.9) rotate(1deg); opacity: 1; }
+          100% { transform: translateY(16vh) scale(1) rotate(0deg); opacity: 0; filter: brightness(1.3); }
         }
-        .fly-up   { animation: flyUp   0.55s ease-in forwards; }
-        .fly-down { animation: flyDown 0.55s ease-out forwards; }
+        @keyframes pileAppear {
+          0%   { transform: scale(0.5) rotate(-8deg); opacity: 0; }
+          60%  { transform: scale(1.1) rotate(2deg); opacity: 1; }
+          100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        @keyframes turnGlow {
+          0%, 100% { box-shadow: 0 0 8px rgba(234,179,8,0.4); }
+          50%       { box-shadow: 0 0 24px rgba(234,179,8,0.9); }
+        }
+        @keyframes slideInUp {
+          0%   { transform: translateY(20px); opacity: 0; }
+          100% { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes popIn {
+          0%   { transform: scale(0.7); opacity: 0; }
+          70%  { transform: scale(1.05); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        .fly-up    { animation: flyUp   0.5s cubic-bezier(0.4,0,1,1) forwards; }
+        .fly-down  { animation: flyDown 0.5s cubic-bezier(0,0,0.6,1) forwards; }
+        .pile-appear { animation: pileAppear 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+        .turn-glow { animation: turnGlow 1.5s ease-in-out infinite; }
+        .slide-in  { animation: slideInUp 0.3s ease-out forwards; }
+        .pop-in    { animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards; }
       `}</style>
 
       {/* 카드 날아가는 애니메이션 */}
       {flyAnim && (
-        <div className={`fixed z-40 pointer-events-none flex gap-1 ${
+        <div className={`fixed z-40 pointer-events-none flex gap-1.5 ${
           flyAnim.fromBottom
             ? 'bottom-36 left-1/2 -translate-x-1/2 fly-up'
             : 'top-28 left-1/2 -translate-x-1/2 fly-down'
         }`}>
           {Array.from({ length: Math.min(flyAnim.count, 5) }).map((_, i) => (
-            <div key={i} className="w-10 h-14 rounded-lg shadow-2xl border border-white/30"
+            <div key={i} className="w-10 h-14 rounded-lg shadow-2xl"
               style={{
-                background: `linear-gradient(135deg, #10b981, #0d9488)`,
-                transform: `rotate(${(i - flyAnim.count/2) * 6}deg)`,
+                background: flyAnim.fromBottom
+                  ? `linear-gradient(135deg, #10b981, #059669)`
+                  : `linear-gradient(135deg, #6366f1, #4f46e5)`,
+                border: '1px solid rgba(255,255,255,0.4)',
+                transform: `rotate(${(i - (flyAnim.count-1)/2) * 5}deg)`,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
               }} />
           ))}
         </div>
       )}
 
-      {/* 1번 카드 이펙트 오버레이 */}
+      {/* 자동 패스 알림 */}
+      {autoClearEffect && (
+        <div className="fixed inset-0 z-45 flex items-center justify-center pointer-events-none">
+          <div className="text-center pop-in">
+            <div className="text-5xl mb-2">🔄</div>
+            <div className="bg-blue-500/90 text-white font-black text-lg px-6 py-3 rounded-2xl shadow-2xl">
+              아무도 못 냅니다!
+            </div>
+            <div className="text-white/80 font-bold text-base mt-2 drop-shadow-lg">
+              {autoClearEffect.winner}이(가) 새로 시작 ▶
+            </div>
+          </div>
+        </div>
+      )}
       {dalmutEffect && (
         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
           <div className="text-center animate-bounce">
@@ -1224,6 +1311,69 @@ function useFirebaseGame() {
     });
     return () => off(handRef);
   }, [roomCode, uid]);
+
+  // ── 연결 상태 감지 + 나갔을 때 자동 처리 ──────────────────
+  useEffect(() => {
+    if (!roomCode || !uid) return;
+    const connRef = ref(db, '.info/connected');
+    const playerConnRef = ref(db, `rooms/${roomCode}/players/${uid}/isConnected`);
+
+    const unsub = onValue(connRef, snap => {
+      if (snap.val() === true) {
+        // 연결됐을 때: isConnected = true, 끊기면 false로
+        update(ref(db, `rooms/${roomCode}/players/${uid}`), { isConnected: true });
+        // onDisconnect: 연결 끊기면 자동으로 false 설정
+        import('firebase/database').then(({ onDisconnect }) => {
+          onDisconnect(playerConnRef).set(false);
+        }).catch(() => {
+          // fallback
+          set(playerConnRef, false);
+        });
+      }
+    });
+    return () => off(connRef);
+  }, [roomCode, uid]);
+
+  // ── 나간 유저 감지 → result 화면에서 자동 ready 처리 ──────
+  useEffect(() => {
+    if (!roomCode || !roomData) return;
+    if (roomData.meta?.status !== "result") return;
+
+    const players = roomData.players ?? {};
+    const readyList = roomData.game?.readyForNext ?? [];
+    const allPlayerIds = Object.keys(players);
+
+    // 연결 끊긴 플레이어 자동 ready 처리
+    const disconnected = allPlayerIds.filter(id =>
+      id !== uid &&
+      players[id]?.isConnected === false &&
+      !readyList.includes(id)
+    );
+
+    if (disconnected.length > 0) {
+      const newReadyList = [...new Set([...readyList, ...disconnected])];
+      const playerCount = allPlayerIds.length;
+
+      const updates = {};
+      updates[`rooms/${roomCode}/game/readyForNext`] = newReadyList;
+
+      if (newReadyList.length >= playerCount) {
+        const ranks = roomData.game?.ranks ?? {};
+        const hasTax = Object.values(ranks).includes("dalmuti") || Object.values(ranks).includes("prime");
+        if (hasTax) {
+          updates[`rooms/${roomCode}/meta/status`] = "tax";
+          updates[`rooms/${roomCode}/game/tributeDone`] = {};
+          updates[`rooms/${roomCode}/game/returnDone`] = {};
+          updates[`rooms/${roomCode}/game/tributeReceived`] = {};
+        }
+        update(ref(db), updates).then(() => {
+          if (!hasTax) startGame();
+        });
+      } else {
+        update(ref(db), updates);
+      }
+    }
+  }, [roomData?.game?.readyForNext, roomData?.players, roomData?.meta?.status]);
 
   // ── 개발 모드 체크 (?dev=true) ────────────────────────────
   // (App 컴포넌트 최상단에서 처리하므로 여기선 제거)
