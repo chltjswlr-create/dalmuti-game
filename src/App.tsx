@@ -499,7 +499,7 @@ function GameTable({ gs, myId, onPlay, onPass }) {
       if (latest.includes("✨ 1번 카드")) {
         const match = latest.match(/✨ 1번 카드! (.+?)이\(가\)/);
         const nickname = match?.[1] ?? "플레이어";
-        setDalmutEffect({ nickname });
+        setDalmutEffect({ nickname, ts: Date.now() });
         setTimeout(() => setDalmutEffect(null), 3000);
         playSound('dalmuti');
       }
@@ -507,11 +507,8 @@ function GameTable({ gs, myId, onPlay, onPass }) {
       if (latest.includes("🔄") && latest.includes("아무도 대응 못함")) {
         const match = latest.match(/→ (.+?)이\(가\) 새로 시작/);
         const winner = match?.[1] ?? "플레이어";
-        // 카드 날아가는 애니메이션 이후에 표시 (별도 렌더링 사이클)
-        setTimeout(() => {
-          setAutoClearEffect({ winner, ts: Date.now() });
-          setTimeout(() => setAutoClearEffect(null), 2800);
-        }, 300);
+        setAutoClearEffect({ winner, ts: Date.now() });
+        setTimeout(() => setAutoClearEffect(null), 2800);
       }
 
       if (latest.includes("을 냈습니다") || latest.includes("장을 냈습니다")) {
