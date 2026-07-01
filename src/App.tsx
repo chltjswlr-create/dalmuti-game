@@ -1551,7 +1551,9 @@ function useFirebaseGame() {
     if (!botIds.includes(currentTurn)) return;
 
     // 같은 턴+상황을 중복 처리하지 않음
-    const turnKey = `${currentTurn}-${game.passCount ?? 0}-${(game.pile ?? []).length}-${(game.log ?? []).length}`;
+    // pile이 비어있고 currentTurn이 같아도 logHash로 구분 (아무도 못 낸 후 재선 상황)
+    const logHash = (game.log ?? []).length;
+    const turnKey = `${currentTurn}-${game.passCount ?? 0}-${(game.pile ?? []).length}-${logHash}`;
     if (botLock.current === turnKey) return;
     botLock.current = turnKey;
 
@@ -1603,7 +1605,7 @@ function useFirebaseGame() {
         });
 
         if (!pile.length) {
-          // 바닥이 비어있으면 숫자 카드 중 가장 약한(높은 숫자) 그룹 선택
+          // 바닥이 비어있으면 가장 약한(높은 숫자) 카드부터 냄 (원래 전략)
           const sorted = Object.entries(groups).sort((a, b) => parseInt(b[0]) - parseInt(a[0]));
           return sorted[0]?.[1] || null;
         }
@@ -1772,29 +1774,45 @@ function useFirebaseGame() {
           const allRemaining = playerIds.filter(id => (allHands[id]?.length ?? 0) > 0);
 
           if (!canAnyone && remainingActive.length > 0 && botCardRank) {
-            // 규칙: 아무도 못 내면 → 낸 사람이 다시 선
-            // 단, 낸 사람이 패를 다 냈으면 → 다음 활성 플레이어가 선
-            let newLeader;
-            if (newBotHand.length > 0) {
-              // 봇이 아직 패 있음 → 봇이 다시 선
-              newLeader = currentTurn;
-            } else {
-              // 봇 패 없음 → 다음 순서 활성 플레이어
-              const activeOthers = allRemaining.filter(id => id !== currentTurn);
-              const curIdx = playerIds.indexOf(currentTurn);
-              newLeader = null;
-              for (let i = 1; i <= playerIds.length; i++) {
-                const candidate = playerIds[(curIdx + i) % playerIds.length];
-                if (activeOthers.includes(candidate)) { newLeader = candidate; break; }
+            // 2초 딜레이 후 선 넘기기 (애니메이션 볼 시간)
+            const leaderKey = turnKey; // 현재 turnKey 캡처
+            setTimeout(async () => {
+              // 딜레이 중 상황이 바뀌었으면 취소
+              const checkSnap = await get(ref(db, `rooms/${roomCode}/game/currentTurn`));
+              if (checkSnap.val() !== currentTurn) return;
+
+              let newLeader;
+              if (newBotHand.length > 0) {
+                newLeader = currentTurn;
+              } else {
+                const activeOthers = allRemaining.filter(id => id !== currentTurn);
+                const curIdx = playerIds.indexOf(currentTurn);
+                newLeader = null;
+                for (let i = 1; i <= playerIds.length; i++) {
+                  const candidate = playerIds[(curIdx + i) % playerIds.length];
+                  if (activeOthers.includes(candidate)) { newLeader = candidate; break; }
+                }
+                newLeader = newLeader ?? activeOthers[0] ?? nextId;
               }
-              newLeader = newLeader ?? activeOthers[0] ?? nextId;
-            }
-            const leaderNick = roomData.players?.[newLeader]?.nickname ?? "다음 플레이어";
-            newLog.push(`🔄 ${botNick}이(가) 낸 ${botCardDesc}에 아무도 대응 못함! → ${leaderNick}이(가) 새로 시작`);
-            updates[`rooms/${roomCode}/game/pile`] = [];
+              const leaderNick = roomData.players?.[newLeader]?.nickname ?? "다음 플레이어";
+              const delayedLog = [...newLog, `🔄 ${botNick}이(가) 낸 ${botCardDesc}에 아무도 대응 못함! → ${leaderNick}이(가) 새로 시작`];
+              const delayedUpdates = {
+                [`rooms/${roomCode}/game/pile`]: [],
+                [`rooms/${roomCode}/game/passCount`]: 0,
+                [`rooms/${roomCode}/game/lastPlayerId`]: null,
+                [`rooms/${roomCode}/game/currentTurn`]: newLeader,
+                [`rooms/${roomCode}/game/log`]: delayedLog.slice(-30),
+              };
+              await update(ref(db), delayedUpdates);
+              botLock.current = '';
+            }, 2000);
+            // 일단 카드는 바닥에 올려놓기
+            updates[`rooms/${roomCode}/game/pile`] = cardsToPlay;
+            updates[`rooms/${roomCode}/game/lastPlayerId`] = currentTurn;
             updates[`rooms/${roomCode}/game/passCount`] = 0;
-            updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
-            updates[`rooms/${roomCode}/game/currentTurn`] = newLeader;
+            updates[`rooms/${roomCode}/game/log`] = newLog.slice(-30);
+            await update(ref(db), updates);
+            return; // 딜레이 setTimeout에서 처리하므로 여기서 종료
           } else {
             updates[`rooms/${roomCode}/game/pile`] = cardsToPlay;
             updates[`rooms/${roomCode}/game/lastPlayerId`] = currentTurn;
@@ -2004,7 +2022,6 @@ function useFirebaseGame() {
 
       if (!canAnyone && remaining.filter(id => id !== playerId).length > 0) {
         const activeOthers = remaining.filter(id => id !== playerId);
-        // 낸 사람 다음 순서로 활성 플레이어 찾기
         const curIdx = playerIds.indexOf(playerId);
         let newLeader = null;
         for (let i = 1; i <= playerIds.length; i++) {
@@ -2014,11 +2031,29 @@ function useFirebaseGame() {
         newLeader = newLeader ?? activeOthers[0] ?? nextId;
         const actualLeader = newHand.length > 0 ? playerId : newLeader;
         const leaderNick = roomData?.players?.[actualLeader]?.nickname ?? playerNick;
-        newLog.push(`🔄 ${playerNick}이(가) 낸 ${cardDesc}에 아무도 대응 못함! → ${leaderNick}이(가) 새로 시작`);
-        updates[`rooms/${roomCode}/game/pile`] = [];
+        const autoClearLog = `🔄 ${playerNick}이(가) 낸 ${cardDesc}에 아무도 대응 못함! → ${leaderNick}이(가) 새로 시작`;
+
+        // 일단 카드 바닥에 올려놓기
+        updates[`rooms/${roomCode}/game/pile`] = cards;
+        updates[`rooms/${roomCode}/game/lastPlayerId`] = playerId;
         updates[`rooms/${roomCode}/game/passCount`] = 0;
-        updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
-        updates[`rooms/${roomCode}/game/currentTurn`] = actualLeader;
+        updates[`rooms/${roomCode}/game/log`] = newLog.slice(-30);
+        await update(ref(db), updates);
+
+        // 2초 후 선 넘기기
+        setTimeout(async () => {
+          const checkSnap = await get(ref(db, `rooms/${roomCode}/game/currentTurn`));
+          if (checkSnap.val() !== nextId && checkSnap.val() !== playerId) return;
+          const delayedLog = [...newLog, autoClearLog];
+          await update(ref(db), {
+            [`rooms/${roomCode}/game/pile`]: [],
+            [`rooms/${roomCode}/game/passCount`]: 0,
+            [`rooms/${roomCode}/game/lastPlayerId`]: null,
+            [`rooms/${roomCode}/game/currentTurn`]: actualLeader,
+            [`rooms/${roomCode}/game/log`]: delayedLog.slice(-30),
+          });
+        }, 2000);
+        return { ok: true };
       } else {
         updates[`rooms/${roomCode}/game/currentTurn`] = nextId;
       }
