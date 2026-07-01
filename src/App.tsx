@@ -1761,8 +1761,17 @@ function useFirebaseGame() {
           const allRemaining = playerIds.filter(id => (allHands[id]?.length ?? 0) > 0);
 
           if (!canAnyone && remainingActive.length > 0 && botCardRank) {
-            // 새 선: 활성 플레이어 중 nextId 방향 첫 번째
-            const newLeader = allRemaining.find(id => id !== currentTurn) ?? allRemaining[0] ?? nextId;
+            // 새 선: 마지막으로 낸 사람(currentTurn) 다음 순서의 활성 플레이어
+            // allRemaining에서 currentTurn 제외 (패 다 낸 경우 이미 없음)
+            const activeOthers = allRemaining.filter(id => id !== currentTurn);
+            // currentTurn 기준으로 다음 사람 순서대로 찾기
+            const curIdx = playerIds.indexOf(currentTurn);
+            let newLeader = null;
+            for (let i = 1; i <= playerIds.length; i++) {
+              const candidate = playerIds[(curIdx + i) % playerIds.length];
+              if (activeOthers.includes(candidate)) { newLeader = candidate; break; }
+            }
+            newLeader = newLeader ?? activeOthers[0] ?? nextId;
             const leaderNick = roomData.players?.[newLeader]?.nickname ?? "다음 플레이어";
             newLog.push(`🔄 ${botNick}이(가) 낸 ${botCardDesc}에 아무도 대응 못함! → ${leaderNick}이(가) 새로 시작`);
             updates[`rooms/${roomCode}/game/pile`] = [];
@@ -1976,8 +1985,15 @@ function useFirebaseGame() {
       );
 
       if (!canAnyone && remaining.filter(id => id !== playerId).length > 0) {
-        const allRemaining = remaining.filter(id => id !== playerId);
-        const newLeader = allRemaining[0] ?? nextId;
+        const activeOthers = remaining.filter(id => id !== playerId);
+        // 낸 사람 다음 순서로 활성 플레이어 찾기
+        const curIdx = playerIds.indexOf(playerId);
+        let newLeader = null;
+        for (let i = 1; i <= playerIds.length; i++) {
+          const candidate = playerIds[(curIdx + i) % playerIds.length];
+          if (activeOthers.includes(candidate)) { newLeader = candidate; break; }
+        }
+        newLeader = newLeader ?? activeOthers[0] ?? nextId;
         const leaderNick = roomData?.players?.[newLeader]?.nickname ?? "다음 플레이어";
         newLog.push(`🔄 ${playerNick}이(가) 낸 ${cardDesc}에 아무도 대응 못함! → ${leaderNick}이(가) 새로 시작`);
         updates[`rooms/${roomCode}/game/pile`] = [];
