@@ -1478,137 +1478,118 @@ function useFirebaseGame() {
   // (App 컴포넌트 최상단에서 처리하므로 여기선 제거)
 
   // ── 봇 세금 자동 처리 (전용 useEffect) ────────────────────
-  const taxLock = useRef(false);
   useEffect(() => {
     if (!roomData || !roomCode) return;
     if (roomData.meta?.status !== "tax") return;
     const game = roomData.game;
     const botIds = game?.botIds ?? [];
     if (!botIds.length) return;
-    if (taxLock.current) return;
 
     const ranks = game?.ranks ?? {};
     const tributeDone = game?.tributeDone ?? {};
     const returnDone = game?.returnDone ?? {};
-
-    // 모든 봇이 처리됐는지 확인
-    const slaveBot = botIds.find(id => (ranks[id] === "great_slave" || ranks[id] === "slave") && !tributeDone[id]);
-    const masterBot = botIds.find(id => (ranks[id] === "dalmuti" || ranks[id] === "prime") && tributeDone[id] && !returnDone[id]);
-
-    if (!slaveBot && !masterBot) return; // 처리할 봇 없음
-
-    taxLock.current = true;
+    const tributeReceived = game?.tributeReceived ?? {};
 
     (async () => {
-      try {
-        // 1단계: 노예 계열 봇 → 세금 바치기
-        for (const botId of botIds) {
-          const botRole = ranks[botId];
-          if ((botRole === "great_slave" || botRole === "slave") && !tributeDone[botId]) {
-            const botHandSnap = await get(ref(db, `rooms/${roomCode}/hands/${botId}`));
-            const botHand = botHandSnap.val() || [];
-            const count = botRole === "great_slave" ? 2 : 1;
-            const sorted = [...botHand].sort((a, b) => (a.rank || 0) - (b.rank || 0));
-            const tribute = sorted.slice(0, count);
-            if (tribute.length < count) continue;
+      // 1단계: 노예 계열 봇 → 세금 바치기
+      for (const botId of botIds) {
+        const botRole = ranks[botId];
+        if (!botRole) continue;
+        if ((botRole === "great_slave" || botRole === "slave") && !tributeDone[botId]) {
+          const botHandSnap = await get(ref(db, `rooms/${roomCode}/hands/${botId}`));
+          const botHand = botHandSnap.val() || [];
+          const count = botRole === "great_slave" ? 2 : 1;
+          const sorted = [...botHand].sort((a, b) => (a.rank || 0) - (b.rank || 0));
+          const tribute = sorted.slice(0, count);
+          if (tribute.length < count) continue;
 
-            const receiverId = botRole === "great_slave"
-              ? Object.keys(ranks).find(id => ranks[id] === "dalmuti")
-              : Object.keys(ranks).find(id => ranks[id] === "prime");
-            if (!receiverId) continue;
+          const receiverId = botRole === "great_slave"
+            ? Object.keys(ranks).find(id => ranks[id] === "dalmuti")
+            : Object.keys(ranks).find(id => ranks[id] === "prime");
+          if (!receiverId) continue;
 
-            const newBotHand = botHand.filter(c => !tribute.find(t => t.id === c.id));
-            const recvSnap = await get(ref(db, `rooms/${roomCode}/game/tributeReceived/${receiverId}`));
-            const existing = recvSnap.val() ?? [];
-            await update(ref(db), {
-              [`rooms/${roomCode}/hands/${botId}`]: newBotHand,
-              [`rooms/${roomCode}/players/${botId}/cardCount`]: newBotHand.length,
-              [`rooms/${roomCode}/game/tributeDone/${botId}`]: true,
-              [`rooms/${roomCode}/game/tributeReceived/${receiverId}`]: [...existing, ...tribute],
-            });
-          }
-        }
-
-        // 사람 플레이어가 tribute를 완료할 때까지 대기 (최대 30초)
-        let waited = 0;
-        while (waited < 30000) {
-          await new Promise(r => setTimeout(r, 500));
-          waited += 500;
-          const checkSnap = await get(ref(db, `rooms/${roomCode}/game/tributeDone`));
-          const currentTributeDone = checkSnap.val() ?? {};
-          const allPlayerIds = Object.keys(roomData?.players ?? {});
-          const slaveIds = allPlayerIds.filter(id => ranks[id] === "great_slave" || ranks[id] === "slave");
-          const allTributeDone = slaveIds.every(id => currentTributeDone[id]);
-          if (allTributeDone) break;
-        }
-
-        // 2단계: 달무티/총리 봇 → 돌려주기
-        const afterRecvSnap = await get(ref(db, `rooms/${roomCode}/game/tributeReceived`));
-        const afterReceived = afterRecvSnap.val() ?? {};
-
-        for (const botId of botIds) {
-          const botRole = ranks[botId];
-          const curReturnSnap = await get(ref(db, `rooms/${roomCode}/game/returnDone/${botId}`));
-          if ((botRole === "dalmuti" || botRole === "prime") && !curReturnSnap.val()) {
-            const botHandSnap = await get(ref(db, `rooms/${roomCode}/hands/${botId}`));
-            const botHand = botHandSnap.val() || [];
-            const received = afterReceived[botId] ?? [];
-            const count = botRole === "dalmuti" ? 2 : 1;
-            const handWithReceived = [...botHand, ...received];
-            const sorted = [...handWithReceived].sort((a, b) => (b.rank || 0) - (a.rank || 0));
-            const returnList = sorted.slice(0, count);
-
-            const targetId = botRole === "dalmuti"
-              ? Object.keys(ranks).find(id => ranks[id] === "great_slave")
-              : Object.keys(ranks).find(id => ranks[id] === "slave");
-            if (!targetId) continue;
-
-            const targetHandSnap = await get(ref(db, `rooms/${roomCode}/hands/${targetId}`));
-            const targetHand = targetHandSnap.val() || [];
-            const newBotHand = handWithReceived.filter(c => !returnList.find(r => r.id === c.id))
-              .sort((a, b) => (a.rank || 0) - (b.rank || 0));
-            const newTargetHand = [...targetHand, ...returnList]
-              .sort((a, b) => (a.rank || 0) - (b.rank || 0));
-
-            await update(ref(db), {
-              [`rooms/${roomCode}/hands/${botId}`]: newBotHand,
-              [`rooms/${roomCode}/players/${botId}/cardCount`]: newBotHand.length,
-              [`rooms/${roomCode}/hands/${targetId}`]: newTargetHand,
-              [`rooms/${roomCode}/players/${targetId}/cardCount`]: newTargetHand.length,
-              [`rooms/${roomCode}/game/returnDone/${botId}`]: true,
-            });
-          }
-        }
-
-        // 3단계: 모든 세금 완료 → 게임 시작
-        await new Promise(r => setTimeout(r, 300));
-        const finalReturnSnap = await get(ref(db, `rooms/${roomCode}/game/returnDone`));
-        const finalReturnDone = finalReturnSnap.val() ?? {};
-        const playerIds = Object.keys(roomData?.players ?? {});
-        const masterIds = playerIds.filter(id => ranks[id] === "dalmuti" || ranks[id] === "prime");
-        const allDone = masterIds.every(id => finalReturnDone[id]);
-
-        if (allDone) {
-          const dalmutiId = Object.keys(ranks).find(id => ranks[id] === "dalmuti") ?? playerIds[0];
+          const newBotHand = botHand.filter(c => !tribute.find(t => t.id === c.id));
+          const existing = tributeReceived[receiverId] ?? [];
           await update(ref(db), {
-            [`rooms/${roomCode}/meta/status`]: "playing",
-            [`rooms/${roomCode}/game/pile`]: [],
-            [`rooms/${roomCode}/game/passCount`]: 0,
-            [`rooms/${roomCode}/game/lastPlayerId`]: null,
-            [`rooms/${roomCode}/game/finished`]: [],
-            [`rooms/${roomCode}/game/currentTurn`]: dalmutiId,
-            [`rooms/${roomCode}/game/round`]: game?.round ?? 1,
-            [`rooms/${roomCode}/game/log`]: ["세금 완료! 달무티부터 시작합니다."],
-            [`rooms/${roomCode}/game/tributeDone`]: {},
-            [`rooms/${roomCode}/game/returnDone`]: {},
-            [`rooms/${roomCode}/game/tributeReceived`]: {},
+            [`rooms/${roomCode}/hands/${botId}`]: newBotHand,
+            [`rooms/${roomCode}/players/${botId}/cardCount`]: newBotHand.length,
+            [`rooms/${roomCode}/game/tributeDone/${botId}`]: true,
+            [`rooms/${roomCode}/game/tributeReceived/${receiverId}`]: [...existing, ...tribute],
           });
         }
-      } finally {
-        taxLock.current = false;
+      }
+
+      // 2단계: 달무티/총리 봇 → 모든 tribute 완료 후 돌려주기
+      // 최신 상태 확인
+      const latestSnap = await get(ref(db, `rooms/${roomCode}/game`));
+      const latestGame = latestSnap.val() ?? {};
+      const latestTributeDone = latestGame.tributeDone ?? {};
+      const latestReturnDone = latestGame.returnDone ?? {};
+      const latestReceived = latestGame.tributeReceived ?? {};
+
+      const allPlayerIds = Object.keys(roomData?.players ?? {});
+      const slaveIds = allPlayerIds.filter(id => ranks[id] === "great_slave" || ranks[id] === "slave");
+      const allTributeDone = slaveIds.every(id => latestTributeDone[id]);
+      if (!allTributeDone) return; // 아직 안 낸 사람 있음
+
+      for (const botId of botIds) {
+        const botRole = ranks[botId];
+        if (!botRole) continue;
+        if ((botRole === "dalmuti" || botRole === "prime") && !latestReturnDone[botId]) {
+          const botHandSnap = await get(ref(db, `rooms/${roomCode}/hands/${botId}`));
+          const botHand = botHandSnap.val() || [];
+          const received = latestReceived[botId] ?? [];
+          const count = botRole === "dalmuti" ? 2 : 1;
+          const handWithReceived = [...botHand, ...received];
+          const sorted = [...handWithReceived].sort((a, b) => (b.rank || 0) - (a.rank || 0));
+          const returnList = sorted.slice(0, count);
+
+          const targetId = botRole === "dalmuti"
+            ? Object.keys(ranks).find(id => ranks[id] === "great_slave")
+            : Object.keys(ranks).find(id => ranks[id] === "slave");
+          if (!targetId) continue;
+
+          const targetHandSnap = await get(ref(db, `rooms/${roomCode}/hands/${targetId}`));
+          const targetHand = targetHandSnap.val() || [];
+          const newBotHand = handWithReceived.filter(c => !returnList.find(r => r.id === c.id))
+            .sort((a, b) => (a.rank || 0) - (b.rank || 0));
+          const newTargetHand = [...targetHand, ...returnList]
+            .sort((a, b) => (a.rank || 0) - (b.rank || 0));
+
+          await update(ref(db), {
+            [`rooms/${roomCode}/hands/${botId}`]: newBotHand,
+            [`rooms/${roomCode}/players/${botId}/cardCount`]: newBotHand.length,
+            [`rooms/${roomCode}/hands/${targetId}`]: newTargetHand,
+            [`rooms/${roomCode}/players/${targetId}/cardCount`]: newTargetHand.length,
+            [`rooms/${roomCode}/game/returnDone/${botId}`]: true,
+          });
+        }
+      }
+
+      // 3단계: 모든 세금 완료 체크
+      const finalSnap = await get(ref(db, `rooms/${roomCode}/game`));
+      const finalReturnDone = finalSnap.val()?.returnDone ?? {};
+      const masterIds = allPlayerIds.filter(id => ranks[id] === "dalmuti" || ranks[id] === "prime");
+      const allDone = masterIds.every(id => finalReturnDone[id]);
+
+      if (allDone) {
+        const dalmutiId = Object.keys(ranks).find(id => ranks[id] === "dalmuti") ?? allPlayerIds[0];
+        await update(ref(db), {
+          [`rooms/${roomCode}/meta/status`]: "playing",
+          [`rooms/${roomCode}/game/pile`]: [],
+          [`rooms/${roomCode}/game/passCount`]: 0,
+          [`rooms/${roomCode}/game/lastPlayerId`]: null,
+          [`rooms/${roomCode}/game/finished`]: [],
+          [`rooms/${roomCode}/game/currentTurn`]: dalmutiId,
+          [`rooms/${roomCode}/game/round`]: game?.round ?? 1,
+          [`rooms/${roomCode}/game/log`]: ["세금 완료! 달무티부터 시작합니다."],
+          [`rooms/${roomCode}/game/tributeDone`]: {},
+          [`rooms/${roomCode}/game/returnDone`]: {},
+          [`rooms/${roomCode}/game/tributeReceived`]: {},
+        });
       }
     })();
-  }, [roomData?.meta?.status, roomData?.game?.tributeDone, roomData?.game?.returnDone]);
+  }, [roomData?.meta?.status, JSON.stringify(roomData?.game?.tributeDone), JSON.stringify(roomData?.game?.returnDone)]);
   const botLock = useRef(''); // 현재 처리 중인 turnKey
   useEffect(() => {
     if (!roomData || !roomCode) return;
