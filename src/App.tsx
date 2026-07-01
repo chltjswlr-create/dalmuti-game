@@ -1462,11 +1462,8 @@ function useFirebaseGame() {
 
             if (allDone) {
               const playerIds = Object.keys(data.players ?? {});
-              const isFirstRound = (data.game?.round ?? 1) === 1;
-              // startRound를 직접 호출할 수 없어 Firebase로 트리거
-              const hands = dealCards(playerIds);
               const dalmutiId = Object.keys(ranks).find(id => ranks[id] === "dalmuti") ?? playerIds[0];
-              const roundNum = isFirstRound ? 1 : (data.game?.round ?? 1);
+              const roundNum = data.game?.round ?? 1;
               const roundUpdates = {};
               roundUpdates[`rooms/${roomCode}/meta/status`] = "playing";
               roundUpdates[`rooms/${roomCode}/game/pile`] = [];
@@ -1479,10 +1476,6 @@ function useFirebaseGame() {
               roundUpdates[`rooms/${roomCode}/game/tributeDone`] = {};
               roundUpdates[`rooms/${roomCode}/game/returnDone`] = {};
               roundUpdates[`rooms/${roomCode}/game/tributeReceived`] = {};
-              playerIds.forEach(id => {
-                roundUpdates[`rooms/${roomCode}/hands/${id}`] = hands[id];
-                roundUpdates[`rooms/${roomCode}/players/${id}/cardCount`] = hands[id].length;
-              });
               await update(ref(db), roundUpdates);
             }
           })();
@@ -1993,14 +1986,19 @@ function useFirebaseGame() {
     const allPlayerIds = Object.keys(roomData?.players ?? {});
     const newDrawn = { ...drawn, [uid]: { rank, nickname } };
     if (Object.keys(newDrawn).length >= allPlayerIds.length) {
-      // 낮은 숫자 = 높은 계급
-      const sorted = allPlayerIds.sort((a, b) =>
+      // 낮은 숫자 = 높은 계급으로 정렬
+      const sorted = [...allPlayerIds].sort((a, b) =>
         (newDrawn[a]?.rank ?? 99) - (newDrawn[b]?.rank ?? 99)
       );
       const ranks = assignRanks(sorted, allPlayerIds.length);
+
+      // 손패 배분 + 계급 확정 + tax 진입을 한번에
+      const hands = dealCards(allPlayerIds);
       const rankUpdates = {};
       allPlayerIds.forEach(id => {
         rankUpdates[`rooms/${roomCode}/players/${id}/rank`] = ranks[id];
+        rankUpdates[`rooms/${roomCode}/hands/${id}`] = hands[id];
+        rankUpdates[`rooms/${roomCode}/players/${id}/cardCount`] = hands[id].length;
       });
       rankUpdates[`rooms/${roomCode}/game/ranks`] = ranks;
       rankUpdates[`rooms/${roomCode}/meta/status`] = "tax";
@@ -2283,9 +2281,24 @@ function useFirebaseGame() {
 
     if (allDone) {
       await update(ref(db), updates);
+      // 손패는 이미 배분됨 - 세금 교환만 완료하고 게임 시작
       const playerIds = Object.keys(roomData?.players ?? {});
-      const isFirstRound = (roomData?.game?.round ?? 1) === 1;
-      await startRound(playerIds, isFirstRound);
+      const ranks = roomData?.game?.ranks ?? {};
+      const dalmutiId = Object.keys(ranks).find(id => ranks[id] === "dalmuti") ?? playerIds[0];
+      const roundNum = roomData?.game?.round ?? 1;
+      await update(ref(db), {
+        [`rooms/${roomCode}/meta/status`]: "playing",
+        [`rooms/${roomCode}/game/pile`]: [],
+        [`rooms/${roomCode}/game/passCount`]: 0,
+        [`rooms/${roomCode}/game/lastPlayerId`]: null,
+        [`rooms/${roomCode}/game/finished`]: [],
+        [`rooms/${roomCode}/game/currentTurn`]: dalmutiId,
+        [`rooms/${roomCode}/game/round`]: roundNum,
+        [`rooms/${roomCode}/game/log`]: ["세금 완료! 달무티부터 시작합니다."],
+        [`rooms/${roomCode}/game/tributeDone`]: {},
+        [`rooms/${roomCode}/game/returnDone`]: {},
+        [`rooms/${roomCode}/game/tributeReceived`]: {},
+      });
       return;
     }
 
