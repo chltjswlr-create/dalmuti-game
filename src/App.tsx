@@ -453,12 +453,40 @@ function TaxScreen({ myId, myHand, ranks, tributeMap, onTributeDone, onReturnDon
   }
 
   // 평민이거나 세금 처리 중 다른 사람 기다리는 화면
+  const allPlayerIds = Object.keys(ranks ?? {});
+  const tributeDone = Object.fromEntries(
+    allPlayerIds.filter(id => tributeMap && Object.keys(tributeMap).some(recv => {
+      // tributeMap은 receiverId → cards 구조
+      return false; // tributeDone은 별도로 받아야 함
+    })).map(id => [id, true])
+  );
+
   return (
     <Modal>
-      <div className="text-center py-6">
+      <div className="text-center py-4">
         <div className="text-4xl mb-3 animate-spin">⏳</div>
-        <p className="text-white font-bold">세금 처리 중...</p>
-        <p className="text-white/40 text-sm mt-2">다른 플레이어의 세금 처리를 기다립니다.</p>
+        <p className="text-white font-bold text-lg">세금 처리 중...</p>
+        <p className="text-white/40 text-sm mt-1 mb-4">다른 플레이어의 세금 처리를 기다립니다.</p>
+
+        {/* 계급별 세금 현황 */}
+        <div className="text-left space-y-2 mt-3">
+          {allPlayerIds.filter(id => ranks[id] === "great_slave" || ranks[id] === "slave").map(id => {
+            const nick = id; // 실제론 players에서 가져와야 하나 여기선 ranks만 있음
+            const receiverId = ranks[id] === "great_slave"
+              ? allPlayerIds.find(p => ranks[p] === "dalmuti")
+              : allPlayerIds.find(p => ranks[p] === "prime");
+            const received = tributeMap?.[receiverId] ?? [];
+            const count = ranks[id] === "great_slave" ? 2 : 1;
+            const done = received.length >= count;
+            return (
+              <div key={id} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm ${done ? 'bg-emerald-500/20' : 'bg-white/5'}`}>
+                <span>{done ? '✅' : '⏳'}</span>
+                <span className="text-white/70">{RANK_LABEL[ranks[id]]} → {RANK_LABEL[ranks[receiverId ?? ''] ?? '']}</span>
+                <span className="text-yellow-400 ml-auto">{count}장</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </Modal>
   );
@@ -1365,121 +1393,6 @@ function useFirebaseGame() {
           setTaxPhase("return_pick");
         else
           setTaxPhase("waiting");
-
-        // ── 봇 세금 자동 처리 ──────────────────────────────────
-        const botIds = data.game?.botIds ?? [];
-        const ranks = data.game?.ranks ?? {};
-        if (botIds.length > 0) {
-          // 순차적으로 처리 (async forEach 대신 for...of)
-          (async () => {
-            const freshSnap = await get(ref(db, `rooms/${roomCode}/game`));
-            const freshGame = freshSnap.val() ?? {};
-            const freshTributeDone = freshGame.tributeDone ?? {};
-            const freshReturnDone = freshGame.returnDone ?? {};
-
-            // 1단계: 세금 바치기 (great_slave → dalmuti, slave → prime)
-            for (const botId of botIds) {
-              const botRole = ranks[botId];
-              if (!botRole) continue;
-              if ((botRole === "great_slave" || botRole === "slave") && !freshTributeDone[botId]) {
-                const botHandSnap = await get(ref(db, `rooms/${roomCode}/hands/${botId}`));
-                const botHand = botHandSnap.val() || [];
-                const sorted = [...botHand].sort((a, b) => (a.rank || 0) - (b.rank || 0));
-                const count = botRole === "great_slave" ? 2 : 1;
-                const tribute = sorted.slice(0, count);
-                if (tribute.length < count) continue;
-
-                const receiverId = botRole === "great_slave"
-                  ? Object.keys(ranks).find(id => ranks[id] === "dalmuti")
-                  : Object.keys(ranks).find(id => ranks[id] === "prime");
-                if (!receiverId) continue;
-
-                const newBotHand = botHand.filter(c => !tribute.find(t => t.id === c.id));
-                const recvSnap = await get(ref(db, `rooms/${roomCode}/game/tributeReceived/${receiverId}`));
-                const existing = recvSnap.val() ?? [];
-                await update(ref(db), {
-                  [`rooms/${roomCode}/hands/${botId}`]: newBotHand,
-                  [`rooms/${roomCode}/players/${botId}/cardCount`]: newBotHand.length,
-                  [`rooms/${roomCode}/game/tributeDone/${botId}`]: true,
-                  [`rooms/${roomCode}/game/tributeReceived/${receiverId}`]: [...existing, ...tribute],
-                });
-              }
-            }
-
-            // 2단계: 사람 플레이어도 tributeDone 됐는지 확인 후 return 단계
-            await new Promise(r => setTimeout(r, 500));
-            const afterTributeSnap = await get(ref(db, `rooms/${roomCode}/game`));
-            const afterGame = afterTributeSnap.val() ?? {};
-            const afterTributeDone = afterGame.tributeDone ?? {};
-            const afterReturnDone = afterGame.returnDone ?? {};
-            const afterTributeReceived = afterGame.tributeReceived ?? {};
-
-            // 3단계: 받기 + 돌려주기 (dalmuti → great_slave, prime → slave)
-            for (const botId of botIds) {
-              const botRole = ranks[botId];
-              if (!botRole) continue;
-              if ((botRole === "dalmuti" || botRole === "prime") && afterTributeDone[botId] && !afterReturnDone[botId]) {
-                const botHandSnap = await get(ref(db, `rooms/${roomCode}/hands/${botId}`));
-                const botHand = botHandSnap.val() || [];
-                const received = afterTributeReceived[botId] ?? [];
-                const count = botRole === "dalmuti" ? 2 : 1;
-                const handWithReceived = [...botHand, ...received];
-                const sorted = [...handWithReceived].sort((a, b) => (b.rank || 0) - (a.rank || 0));
-                const returnList = sorted.slice(0, count);
-
-                const targetId = botRole === "dalmuti"
-                  ? Object.keys(ranks).find(id => ranks[id] === "great_slave")
-                  : Object.keys(ranks).find(id => ranks[id] === "slave");
-                if (!targetId) continue;
-
-                const targetHandSnap = await get(ref(db, `rooms/${roomCode}/hands/${targetId}`));
-                const targetHand = targetHandSnap.val() || [];
-                const newBotHand = handWithReceived.filter(c => !returnList.find(r => r.id === c.id))
-                  .sort((a, b) => (a.rank || 0) - (b.rank || 0));
-                const newTargetHand = [...targetHand, ...returnList]
-                  .sort((a, b) => (a.rank || 0) - (b.rank || 0));
-
-                await update(ref(db), {
-                  [`rooms/${roomCode}/hands/${botId}`]: newBotHand,
-                  [`rooms/${roomCode}/players/${botId}/cardCount`]: newBotHand.length,
-                  [`rooms/${roomCode}/hands/${targetId}`]: newTargetHand,
-                  [`rooms/${roomCode}/players/${targetId}/cardCount`]: newTargetHand.length,
-                  [`rooms/${roomCode}/game/returnDone/${botId}`]: true,
-                });
-              }
-            }
-
-            // 4단계: 모든 세금 완료 체크 → startRound 호출
-            await new Promise(r => setTimeout(r, 300));
-            const finalSnap = await get(ref(db, `rooms/${roomCode}/game`));
-            const finalGame = finalSnap.val() ?? {};
-            const finalReturnDone = finalGame.returnDone ?? {};
-            const requiredIds = [
-              Object.keys(ranks).find(id => ranks[id] === "dalmuti"),
-              Object.keys(ranks).find(id => ranks[id] === "prime"),
-            ].filter(Boolean);
-            const allDone = requiredIds.every(id => finalReturnDone[id]);
-
-            if (allDone) {
-              const playerIds = Object.keys(data.players ?? {});
-              const dalmutiId = Object.keys(ranks).find(id => ranks[id] === "dalmuti") ?? playerIds[0];
-              const roundNum = data.game?.round ?? 1;
-              const roundUpdates = {};
-              roundUpdates[`rooms/${roomCode}/meta/status`] = "playing";
-              roundUpdates[`rooms/${roomCode}/game/pile`] = [];
-              roundUpdates[`rooms/${roomCode}/game/passCount`] = 0;
-              roundUpdates[`rooms/${roomCode}/game/lastPlayerId`] = null;
-              roundUpdates[`rooms/${roomCode}/game/finished`] = [];
-              roundUpdates[`rooms/${roomCode}/game/currentTurn`] = dalmutiId;
-              roundUpdates[`rooms/${roomCode}/game/round`] = roundNum;
-              roundUpdates[`rooms/${roomCode}/game/log`] = ["세금 완료! 달무티부터 시작합니다."];
-              roundUpdates[`rooms/${roomCode}/game/tributeDone`] = {};
-              roundUpdates[`rooms/${roomCode}/game/returnDone`] = {};
-              roundUpdates[`rooms/${roomCode}/game/tributeReceived`] = {};
-              await update(ref(db), roundUpdates);
-            }
-          })();
-        }
       }
       else if (status === "playing") setScreen("game");
       else if (status === "result") setScreen("result");
@@ -1564,7 +1477,138 @@ function useFirebaseGame() {
   // ── 개발 모드 체크 (?dev=true) ────────────────────────────
   // (App 컴포넌트 최상단에서 처리하므로 여기선 제거)
 
-  // ── 봇 AI: 봇 차례일 때 자동 플레이 ──────────────────────
+  // ── 봇 세금 자동 처리 (전용 useEffect) ────────────────────
+  const taxLock = useRef(false);
+  useEffect(() => {
+    if (!roomData || !roomCode) return;
+    if (roomData.meta?.status !== "tax") return;
+    const game = roomData.game;
+    const botIds = game?.botIds ?? [];
+    if (!botIds.length) return;
+    if (taxLock.current) return;
+
+    const ranks = game?.ranks ?? {};
+    const tributeDone = game?.tributeDone ?? {};
+    const returnDone = game?.returnDone ?? {};
+
+    // 모든 봇이 처리됐는지 확인
+    const slaveBot = botIds.find(id => (ranks[id] === "great_slave" || ranks[id] === "slave") && !tributeDone[id]);
+    const masterBot = botIds.find(id => (ranks[id] === "dalmuti" || ranks[id] === "prime") && tributeDone[id] && !returnDone[id]);
+
+    if (!slaveBot && !masterBot) return; // 처리할 봇 없음
+
+    taxLock.current = true;
+
+    (async () => {
+      try {
+        // 1단계: 노예 계열 봇 → 세금 바치기
+        for (const botId of botIds) {
+          const botRole = ranks[botId];
+          if ((botRole === "great_slave" || botRole === "slave") && !tributeDone[botId]) {
+            const botHandSnap = await get(ref(db, `rooms/${roomCode}/hands/${botId}`));
+            const botHand = botHandSnap.val() || [];
+            const count = botRole === "great_slave" ? 2 : 1;
+            const sorted = [...botHand].sort((a, b) => (a.rank || 0) - (b.rank || 0));
+            const tribute = sorted.slice(0, count);
+            if (tribute.length < count) continue;
+
+            const receiverId = botRole === "great_slave"
+              ? Object.keys(ranks).find(id => ranks[id] === "dalmuti")
+              : Object.keys(ranks).find(id => ranks[id] === "prime");
+            if (!receiverId) continue;
+
+            const newBotHand = botHand.filter(c => !tribute.find(t => t.id === c.id));
+            const recvSnap = await get(ref(db, `rooms/${roomCode}/game/tributeReceived/${receiverId}`));
+            const existing = recvSnap.val() ?? [];
+            await update(ref(db), {
+              [`rooms/${roomCode}/hands/${botId}`]: newBotHand,
+              [`rooms/${roomCode}/players/${botId}/cardCount`]: newBotHand.length,
+              [`rooms/${roomCode}/game/tributeDone/${botId}`]: true,
+              [`rooms/${roomCode}/game/tributeReceived/${receiverId}`]: [...existing, ...tribute],
+            });
+          }
+        }
+
+        // 사람 플레이어가 tribute를 완료할 때까지 대기 (최대 30초)
+        let waited = 0;
+        while (waited < 30000) {
+          await new Promise(r => setTimeout(r, 500));
+          waited += 500;
+          const checkSnap = await get(ref(db, `rooms/${roomCode}/game/tributeDone`));
+          const currentTributeDone = checkSnap.val() ?? {};
+          const allPlayerIds = Object.keys(roomData?.players ?? {});
+          const slaveIds = allPlayerIds.filter(id => ranks[id] === "great_slave" || ranks[id] === "slave");
+          const allTributeDone = slaveIds.every(id => currentTributeDone[id]);
+          if (allTributeDone) break;
+        }
+
+        // 2단계: 달무티/총리 봇 → 돌려주기
+        const afterRecvSnap = await get(ref(db, `rooms/${roomCode}/game/tributeReceived`));
+        const afterReceived = afterRecvSnap.val() ?? {};
+
+        for (const botId of botIds) {
+          const botRole = ranks[botId];
+          const curReturnSnap = await get(ref(db, `rooms/${roomCode}/game/returnDone/${botId}`));
+          if ((botRole === "dalmuti" || botRole === "prime") && !curReturnSnap.val()) {
+            const botHandSnap = await get(ref(db, `rooms/${roomCode}/hands/${botId}`));
+            const botHand = botHandSnap.val() || [];
+            const received = afterReceived[botId] ?? [];
+            const count = botRole === "dalmuti" ? 2 : 1;
+            const handWithReceived = [...botHand, ...received];
+            const sorted = [...handWithReceived].sort((a, b) => (b.rank || 0) - (a.rank || 0));
+            const returnList = sorted.slice(0, count);
+
+            const targetId = botRole === "dalmuti"
+              ? Object.keys(ranks).find(id => ranks[id] === "great_slave")
+              : Object.keys(ranks).find(id => ranks[id] === "slave");
+            if (!targetId) continue;
+
+            const targetHandSnap = await get(ref(db, `rooms/${roomCode}/hands/${targetId}`));
+            const targetHand = targetHandSnap.val() || [];
+            const newBotHand = handWithReceived.filter(c => !returnList.find(r => r.id === c.id))
+              .sort((a, b) => (a.rank || 0) - (b.rank || 0));
+            const newTargetHand = [...targetHand, ...returnList]
+              .sort((a, b) => (a.rank || 0) - (b.rank || 0));
+
+            await update(ref(db), {
+              [`rooms/${roomCode}/hands/${botId}`]: newBotHand,
+              [`rooms/${roomCode}/players/${botId}/cardCount`]: newBotHand.length,
+              [`rooms/${roomCode}/hands/${targetId}`]: newTargetHand,
+              [`rooms/${roomCode}/players/${targetId}/cardCount`]: newTargetHand.length,
+              [`rooms/${roomCode}/game/returnDone/${botId}`]: true,
+            });
+          }
+        }
+
+        // 3단계: 모든 세금 완료 → 게임 시작
+        await new Promise(r => setTimeout(r, 300));
+        const finalReturnSnap = await get(ref(db, `rooms/${roomCode}/game/returnDone`));
+        const finalReturnDone = finalReturnSnap.val() ?? {};
+        const playerIds = Object.keys(roomData?.players ?? {});
+        const masterIds = playerIds.filter(id => ranks[id] === "dalmuti" || ranks[id] === "prime");
+        const allDone = masterIds.every(id => finalReturnDone[id]);
+
+        if (allDone) {
+          const dalmutiId = Object.keys(ranks).find(id => ranks[id] === "dalmuti") ?? playerIds[0];
+          await update(ref(db), {
+            [`rooms/${roomCode}/meta/status`]: "playing",
+            [`rooms/${roomCode}/game/pile`]: [],
+            [`rooms/${roomCode}/game/passCount`]: 0,
+            [`rooms/${roomCode}/game/lastPlayerId`]: null,
+            [`rooms/${roomCode}/game/finished`]: [],
+            [`rooms/${roomCode}/game/currentTurn`]: dalmutiId,
+            [`rooms/${roomCode}/game/round`]: game?.round ?? 1,
+            [`rooms/${roomCode}/game/log`]: ["세금 완료! 달무티부터 시작합니다."],
+            [`rooms/${roomCode}/game/tributeDone`]: {},
+            [`rooms/${roomCode}/game/returnDone`]: {},
+            [`rooms/${roomCode}/game/tributeReceived`]: {},
+          });
+        }
+      } finally {
+        taxLock.current = false;
+      }
+    })();
+  }, [roomData?.meta?.status, roomData?.game?.tributeDone, roomData?.game?.returnDone]);
   const botLock = useRef(''); // 현재 처리 중인 turnKey
   useEffect(() => {
     if (!roomData || !roomCode) return;
@@ -1967,9 +2011,8 @@ function useFirebaseGame() {
   async function drawCard() {
     const drawnSnap = await get(ref(db, `rooms/${roomCode}/game/drawnCards`));
     const drawn = drawnSnap.val() || {};
-    if (drawn[uid]) return; // 이미 뽑음
+    if (drawn[uid]) return;
 
-    // 이미 뽑힌 카드 제외하고 랜덤 뽑기 (1~12, 조커=13)
     const usedRanks = Object.values(drawn).map((d) => d.rank);
     const available = [];
     for (let r = 1; r <= 13; r++) {
@@ -1978,36 +2021,38 @@ function useFirebaseGame() {
     const rank = available[Math.floor(Math.random() * available.length)];
     const nickname = roomData?.players?.[uid]?.nickname;
 
+    // 내 카드 먼저 표시 (3초 동안 보여주기)
     await update(ref(db), {
       [`rooms/${roomCode}/game/drawnCards/${uid}`]: { rank, nickname },
     });
 
-    // 모두 뽑았으면 계급 확정 후 tax로
-    const allPlayerIds = Object.keys(roomData?.players ?? {});
-    const newDrawn = { ...drawn, [uid]: { rank, nickname } };
-    if (Object.keys(newDrawn).length >= allPlayerIds.length) {
-      // 낮은 숫자 = 높은 계급으로 정렬
-      const sorted = [...allPlayerIds].sort((a, b) =>
-        (newDrawn[a]?.rank ?? 99) - (newDrawn[b]?.rank ?? 99)
-      );
-      const ranks = assignRanks(sorted, allPlayerIds.length);
+    // 3초 후 모두 뽑았으면 다음 단계로
+    setTimeout(async () => {
+      const latestSnap = await get(ref(db, `rooms/${roomCode}/game/drawnCards`));
+      const latestDrawn = latestSnap.val() || {};
+      const allPlayerIds = Object.keys(roomData?.players ?? {});
 
-      // 손패 배분 + 계급 확정 + tax 진입을 한번에
-      const hands = dealCards(allPlayerIds);
-      const rankUpdates = {};
-      allPlayerIds.forEach(id => {
-        rankUpdates[`rooms/${roomCode}/players/${id}/rank`] = ranks[id];
-        rankUpdates[`rooms/${roomCode}/hands/${id}`] = hands[id];
-        rankUpdates[`rooms/${roomCode}/players/${id}/cardCount`] = hands[id].length;
-      });
-      rankUpdates[`rooms/${roomCode}/game/ranks`] = ranks;
-      rankUpdates[`rooms/${roomCode}/meta/status`] = "tax";
-      rankUpdates[`rooms/${roomCode}/game/tributeDone`] = {};
-      rankUpdates[`rooms/${roomCode}/game/returnDone`] = {};
-      rankUpdates[`rooms/${roomCode}/game/tributeReceived`] = {};
-      rankUpdates[`rooms/${roomCode}/game/log`] = ["계급이 확정됐습니다! 세금을 납부하세요."];
-      await update(ref(db), rankUpdates);
-    }
+      if (Object.keys(latestDrawn).length >= allPlayerIds.length) {
+        const sorted = [...allPlayerIds].sort((a, b) =>
+          (latestDrawn[a]?.rank ?? 99) - (latestDrawn[b]?.rank ?? 99)
+        );
+        const ranks = assignRanks(sorted, allPlayerIds.length);
+        const hands = dealCards(allPlayerIds);
+        const rankUpdates = {};
+        allPlayerIds.forEach(id => {
+          rankUpdates[`rooms/${roomCode}/players/${id}/rank`] = ranks[id];
+          rankUpdates[`rooms/${roomCode}/hands/${id}`] = hands[id];
+          rankUpdates[`rooms/${roomCode}/players/${id}/cardCount`] = hands[id].length;
+        });
+        rankUpdates[`rooms/${roomCode}/game/ranks`] = ranks;
+        rankUpdates[`rooms/${roomCode}/meta/status`] = "tax";
+        rankUpdates[`rooms/${roomCode}/game/tributeDone`] = {};
+        rankUpdates[`rooms/${roomCode}/game/returnDone`] = {};
+        rankUpdates[`rooms/${roomCode}/game/tributeReceived`] = {};
+        rankUpdates[`rooms/${roomCode}/game/log`] = ["계급이 확정됐습니다! 세금을 납부하세요."];
+        await update(ref(db), rankUpdates);
+      }
+    }, 3000);
   }
 
   // ── 카드 내기 ─────────────────────────────────────────────
