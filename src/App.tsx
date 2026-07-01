@@ -899,20 +899,18 @@ function GameTable({ gs, myId, onPlay, onPass }) {
         </div>
       </div>
 
-      {/* 메인 게임 영역 - 사이드바 + 중앙 */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* 메인 게임 영역 - 고정 높이로 레이아웃 보호 */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
 
-        {/* 왼쪽: 플레이어 목록 - 계급별 그룹, 같은 계급은 가로 */}
-        <div className="w-28 flex flex-col gap-1 px-1.5 py-2 bg-black/20 border-r border-white/5 overflow-y-auto">
+        {/* 왼쪽: 플레이어 목록 - 고정 너비, 독립 스크롤 */}
+        <div className="w-28 flex-shrink-0 flex flex-col gap-1 px-1.5 py-2 bg-black/20 border-r border-white/5 overflow-y-auto">
           {(() => {
-            const RANK_ORDER = ['dalmuti','prime','peasant','slave','great_slave', null];
             const RANK_EMOJI_MAP = {"dalmuti":"👑","prime":"🤵","peasant":"👨","slave":"🔗","great_slave":"⛓️"};
             const allPlayers = [
               { ...self, id: 'me', isSelf: true, cardCount: myHand.length },
               ...others
             ].filter(Boolean);
 
-            // 계급별 그룹화
             const groups = {};
             allPlayers.forEach(p => {
               const key = p.rank ?? 'none';
@@ -920,35 +918,32 @@ function GameTable({ gs, myId, onPlay, onPass }) {
               groups[key].push(p);
             });
 
-            // 계급 순서대로 렌더링
-            const orderedKeys = [...RANK_ORDER.map(r => r ?? 'none'), 'none'].filter((v,i,a) => a.indexOf(v) === i);
+            const RANK_ORDER = ['dalmuti','prime','peasant','slave','great_slave','none'];
 
-            return orderedKeys.filter(k => groups[k]?.length).map(key => {
+            return RANK_ORDER.filter(k => groups[k]?.length).map(key => {
               const rankPlayers = groups[key];
               const rankLabel = key !== 'none' ? RANK_LABEL[key] : null;
               const rankEmoji = RANK_EMOJI_MAP[key] ?? '👤';
 
               return (
-                <div key={key} className="mb-1">
+                <div key={key} className="mb-1 flex-shrink-0">
                   {rankLabel && (
-                    <div className="text-[8px] text-white/30 px-1 mb-0.5 uppercase tracking-widest">{rankEmoji} {rankLabel.replace(/^[^ ]+ /,'')}</div>
+                    <div className="text-[8px] text-white/30 px-1 mb-0.5">{rankEmoji} {rankLabel.replace(/^[^ ]+ /,'')}</div>
                   )}
                   <div className="flex flex-wrap gap-1">
                     {rankPlayers.map(p => {
                       const isActive = p.isSelf ? isMyTurn : currentTurn === p.id;
                       return (
-                        <div key={p.id ?? 'me'} className={`flex flex-col items-center px-1.5 py-1.5 rounded-lg transition-all flex-1 min-w-[44px]
+                        <div key={p.id ?? 'me'} className={`flex flex-col items-center px-1 py-1.5 rounded-lg transition-all flex-1 min-w-[44px]
                           ${isActive ? 'bg-yellow-400/20 ring-1 ring-yellow-400 turn-glow' : 'bg-white/5'}`}>
-                          <span className="text-lg leading-none">
+                          <span className="text-base leading-none">
                             {key !== 'none' ? rankEmoji : (p.isSelf ? '🙋' : '👤')}
                           </span>
                           <span className="text-white text-[9px] font-bold truncate w-full text-center mt-0.5">
                             {p.isSelf ? (p.nickname ?? '나') : p.nickname}
                           </span>
-                          <span className="text-white/40 text-[8px]">🃏{p.cardCount ?? p.myHand?.length ?? 0}</span>
-                          {isActive && (
-                            <span className="text-[8px] text-yellow-400 animate-pulse font-bold">▶</span>
-                          )}
+                          <span className="text-white/40 text-[8px]">🃏{p.cardCount ?? 0}</span>
+                          {isActive && <span className="text-[8px] text-yellow-400 animate-pulse font-bold">▶</span>}
                         </div>
                       );
                     })}
@@ -959,9 +954,9 @@ function GameTable({ gs, myId, onPlay, onPass }) {
           })()}
         </div>
 
-        {/* 중앙: 바닥 + 로그 */}
-        <div className="flex-1 flex flex-col items-center justify-center gap-2 px-3 py-2">
-          <div className="bg-black/25 backdrop-blur rounded-2xl px-4 py-3 flex flex-col items-center gap-2 shadow-xl border border-white/5 w-full">
+        {/* 중앙: 바닥 + 로그 - flex-1로 나머지 공간 차지, 내부 스크롤 */}
+        <div className="flex-1 min-w-0 flex flex-col gap-2 px-3 py-2 overflow-hidden">
+          <div className="bg-black/25 backdrop-blur rounded-2xl px-4 py-3 flex flex-col items-center gap-2 shadow-xl border border-white/5 flex-shrink-0">
             <p className="text-white/30 text-[9px] uppercase tracking-widest">바닥 카드</p>
             <Pile pile={pile} />
             {gs.lastPlayerNick && pile?.length > 0 && (
@@ -969,10 +964,10 @@ function GameTable({ gs, myId, onPlay, onPass }) {
             )}
           </div>
 
-          {/* 로그 */}
-          <div className="w-full bg-black/20 rounded-xl px-3 py-2 max-h-24 overflow-y-auto">
-            {(log || []).slice(-6).reverse().map((l, i) => (
-              <p key={i} className={`text-[10px] truncate leading-relaxed
+          {/* 로그 - 고정 높이, 내부 스크롤 */}
+          <div className="w-full bg-black/20 rounded-xl px-3 py-2 overflow-y-auto flex-shrink-0" style={{ maxHeight: '96px' }}>
+            {(log || []).slice(-8).reverse().map((l, i) => (
+              <p key={i} className={`text-[10px] leading-relaxed
                 ${i === 0 ? "text-white/70 font-medium" :
                   i === 1 ? "text-white/45" : "text-white/20"}`}>{l}</p>
             ))}
