@@ -140,15 +140,15 @@ function validatePlay(cards, pile) {
   return { ok: true };
 }
 
-// 계급 배정 (완료 순서 기반)
-const RANK_KEYS = ["dalmuti", "prime", "peasant", "slave", "great_slave"];
+// 계급 배정 (5~10명 완전 지원)
 function assignRanks(finishedOrder, totalPlayers) {
   const ranks = {};
+  const last = finishedOrder.length - 1;
   finishedOrder.forEach((id, i) => {
     if (i === 0) ranks[id] = "dalmuti";
-    else if (i === 1 && totalPlayers >= 6) ranks[id] = "prime";
-    else if (i === finishedOrder.length - 1) ranks[id] = "great_slave";
-    else if (i === finishedOrder.length - 2 && totalPlayers >= 6) ranks[id] = "slave";
+    else if (i === last) ranks[id] = "great_slave";
+    else if (totalPlayers >= 6 && i === 1) ranks[id] = "prime";
+    else if (totalPlayers >= 6 && i === last - 1) ranks[id] = "slave";
     else ranks[id] = "peasant";
   });
   return ranks;
@@ -221,33 +221,40 @@ function generateRoomCode() {
 //  3. UI 컴포넌트
 // ================================================================
 
-// ── 카드별 역할 및 이모지 ─────────────────────────────────────
+// ── 카드별 역할 및 SVG 아이콘 ────────────────────────────────
 const CARD_ROLE = {
-  1:  { name: "달무티",    emoji: "👑" },
-  2:  { name: "대주교",    emoji: "✝️" },
-  3:  { name: "귀족",      emoji: "🏰" },
-  4:  { name: "귀족부인",  emoji: "👸" },
-  5:  { name: "총리",      emoji: "🤵" },
-  6:  { name: "점성술사",  emoji: "🔮" },
-  7:  { name: "기사",      emoji: "⚔️" },
-  8:  { name: "재봉사",    emoji: "🧵" },
-  9:  { name: "농부",      emoji: "🌾" },
-  10: { name: "요리사",    emoji: "🍳" },
-  11: { name: "노예",      emoji: "🔗" },
-  12: { name: "대노예",    emoji: "⛓️" },
+  1:  { name: "달무티",    emoji: "👑", color: "from-yellow-300 to-amber-500", text: "text-yellow-900",
+        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.15)"/><text x="20" y="16" textAnchor="middle" fontSize="14" fill="gold">👑</text><text x="20" y="28" textAnchor="middle" fontSize="7" fill="rgba(0,0,0,0.6)" fontWeight="bold">DALMUTI</text></svg> },
+  2:  { name: "대주교",    emoji: "✝️", color: "from-red-400 to-rose-600", text: "text-white",
+        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.15)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="white">✝️</text></svg> },
+  3:  { name: "귀족",      emoji: "🏰", color: "from-red-400 to-red-600", text: "text-white",
+        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.15)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="white">🏰</text></svg> },
+  4:  { name: "귀족부인",  emoji: "👸", color: "from-orange-400 to-red-500", text: "text-white",
+        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.15)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="white">👸</text></svg> },
+  5:  { name: "총리",      emoji: "🤵", color: "from-amber-300 to-amber-500", text: "text-amber-900",
+        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.1)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="rgba(0,0,0,0.7)">🤵</text></svg> },
+  6:  { name: "점성술사",  emoji: "🔮", color: "from-amber-300 to-yellow-500", text: "text-amber-900",
+        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.1)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="rgba(0,0,0,0.7)">🔮</text></svg> },
+  7:  { name: "기사",      emoji: "⚔️", color: "from-yellow-300 to-amber-400", text: "text-amber-900",
+        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.1)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="rgba(0,0,0,0.7)">⚔️</text></svg> },
+  8:  { name: "재봉사",    emoji: "🧵", color: "from-slate-300 to-slate-400", text: "text-slate-800",
+        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.08)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="rgba(0,0,0,0.6)">🧵</text></svg> },
+  9:  { name: "농부",      emoji: "🌾", color: "from-slate-200 to-slate-400", text: "text-slate-800",
+        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.08)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="rgba(0,0,0,0.6)">🌾</text></svg> },
+  10: { name: "요리사",    emoji: "🍳", color: "from-slate-200 to-slate-300", text: "text-slate-800",
+        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.08)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="rgba(0,0,0,0.6)">🍳</text></svg> },
+  11: { name: "노예",      emoji: "🔗", color: "from-slate-300 to-slate-500", text: "text-slate-800",
+        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.08)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="rgba(0,0,0,0.6)">🔗</text></svg> },
+  12: { name: "대노예",    emoji: "⛓️", color: "from-slate-400 to-slate-600", text: "text-white",
+        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.15)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="white">⛓️</text></svg> },
 };
 
 // ── 카드 ──────────────────────────────────────────────────────
-function Card({ card, selected, onClick, disabled, size = "md", showRole = false }) {
+function Card({ card, selected, onClick, disabled, size = "md" }) {
   const isJoker = card.joker;
   const role = isJoker ? null : CARD_ROLE[card.rank];
-  const color = isJoker
-    ? "bg-gradient-to-br from-purple-500 to-pink-500 text-white"
-    : card.rank <= 3
-    ? "bg-gradient-to-br from-red-400 to-red-600 text-white"
-    : card.rank <= 7
-    ? "bg-gradient-to-br from-amber-300 to-amber-500 text-gray-900"
-    : "bg-gradient-to-br from-slate-200 to-slate-400 text-gray-800";
+  const gradColor = isJoker ? "from-purple-500 to-pink-600" : (role?.color ?? "from-slate-300 to-slate-500");
+  const textColor = isJoker ? "text-white" : (role?.text ?? "text-white");
   const sz = size === "sm" ? "w-12 h-16" : "w-16 h-24";
 
   return (
@@ -255,31 +262,31 @@ function Card({ card, selected, onClick, disabled, size = "md", showRole = false
       onClick={onClick}
       disabled={disabled}
       className={`relative ${sz} rounded-xl shadow-lg border-2 flex flex-col items-center justify-center
-        font-bold select-none transition-all duration-150 ${color}
+        font-bold select-none transition-all duration-150 bg-gradient-to-br ${gradColor} ${textColor}
         ${selected ? "border-white scale-110 -translate-y-3 shadow-2xl" : "border-transparent"}
         ${disabled ? "cursor-not-allowed" : "hover:-translate-y-1 hover:shadow-xl cursor-pointer"}`}
     >
       {isJoker ? (
-        <div className="flex flex-col items-center justify-center gap-0.5">
-          <span className="text-4xl leading-none">🃏</span>
-          {size !== "sm" && <span className="text-[9px] opacity-80 font-bold mt-1">어수룩한자</span>}
+        <div className="flex flex-col items-center justify-center">
+          <span className="text-3xl leading-none">🃏</span>
+          {size !== "sm" && <span className="text-[8px] opacity-80 font-bold mt-0.5">어수룩한자</span>}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center gap-0.5 px-1">
-          <span className={`${size === "sm" ? "text-lg" : "text-2xl"} leading-none`}>{role?.emoji}</span>
-          <span className={`${size === "sm" ? "text-sm" : "text-lg"} font-black leading-none`}>{card.rank}</span>
-          {size !== "sm" && <span className="text-[8px] opacity-70 font-semibold text-center leading-tight">{role?.name}</span>}
+        <div className="flex flex-col items-center justify-center w-full h-full p-0.5">
+          {/* 상단 숫자 */}
+          <span className="absolute top-0.5 left-1 text-[9px] font-black opacity-70">{card.rank}</span>
+          {/* 중앙 이모지 */}
+          <span className={`${size === "sm" ? "text-xl" : "text-2xl"} leading-none mt-1`}>{role?.emoji}</span>
+          {/* 하단 이름 */}
+          {size !== "sm" && (
+            <span className="text-[7px] font-bold opacity-75 text-center leading-tight mt-0.5 px-0.5">{role?.name}</span>
+          )}
+          {/* 하단 숫자 (뒤집힌) */}
+          <span className="absolute bottom-0.5 right-1 text-[9px] font-black opacity-70 rotate-180">{card.rank}</span>
         </div>
       )}
       {selected && (
-        <span className="absolute -top-2 -right-2 bg-white text-blue-600 rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold shadow">✓</span>
-      )}
-      {/* 카드 모서리 숫자 */}
-      {!isJoker && size !== "sm" && (
-        <>
-          <span className="absolute top-1 left-1.5 text-[10px] font-black opacity-60">{card.rank}</span>
-          <span className="absolute bottom-1 right-1.5 text-[10px] font-black opacity-60 rotate-180">{card.rank}</span>
-        </>
+        <span className="absolute -top-2 -right-2 bg-white text-blue-600 rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold shadow z-10">✓</span>
       )}
     </button>
   );
@@ -490,10 +497,10 @@ function GameTable({ gs, myId, onPlay, onPass }) {
   useEffect(() => {
     function playBg() {
       playSound('bg');
-      bgTimer.current = setTimeout(playBg, 2400);
+      bgTimer.current = setTimeout(playBg, 2800);
     }
-    playBg();
-    return () => clearTimeout(bgTimer.current);
+    const startTimer = setTimeout(playBg, 500);
+    return () => { clearTimeout(startTimer); clearTimeout(bgTimer.current); };
   }, []);
   const audioCtx = useRef(null);
   function getAudioCtx() {
@@ -507,15 +514,25 @@ function GameTable({ gs, myId, onPlay, onPass }) {
       const now = ctx.currentTime;
 
       if (type === 'card') {
-        // 카드 내기: 짧고 경쾌한 소리
-        const osc = ctx.createOscillator();
+        // 카드 내기: 삭 내미는 소리 (swoosh)
+        const bufferSize = ctx.sampleRate * 0.15;
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+        }
+        const source = ctx.createBufferSource();
         const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.frequency.setValueAtTime(600, now);
-        osc.frequency.exponentialRampToValueAtTime(400, now + 0.1);
-        gain.gain.setValueAtTime(0.3, now);
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.value = 1000;
+        source.buffer = buffer;
+        source.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+        gain.gain.setValueAtTime(0.4, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-        osc.start(now); osc.stop(now + 0.15);
+        source.start(now);
 
       } else if (type === 'pass') {
         // 패스: 낮고 짧은 소리
@@ -584,18 +601,24 @@ function GameTable({ gs, myId, onPlay, onPass }) {
         osc.start(now); osc.stop(now + 0.6);
 
       } else if (type === 'bg') {
-        // 배경음: 잔잔한 반복 멜로디 (짧은 루프)
-        const bgNotes = [262, 330, 392, 330, 294, 262];
-        bgNotes.forEach((freq, i) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, now + i * 0.4);
-          gain.gain.setValueAtTime(0.05, now + i * 0.4);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.4 + 0.4);
-          osc.start(now + i * 0.4);
-          osc.stop(now + i * 0.4 + 0.4);
+        // 배경음: 웅장한 왕궁 느낌 화음
+        const melody = [392, 440, 523, 494, 440, 392, 349, 392];
+        const harmony = [294, 330, 392, 370, 330, 294, 262, 294];
+        const bass =    [196, 220, 261, 247, 220, 196, 175, 196];
+        melody.forEach((freq, i) => {
+          [[freq, 0.08], [harmony[i], 0.05], [bass[i], 0.06]].forEach(([f, vol]) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const reverb = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.type = i % 2 === 0 ? 'triangle' : 'sine';
+            osc.frequency.setValueAtTime(f, now + i * 0.35);
+            gain.gain.setValueAtTime(0, now + i * 0.35);
+            gain.gain.linearRampToValueAtTime(vol, now + i * 0.35 + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.35 + 0.4);
+            osc.start(now + i * 0.35);
+            osc.stop(now + i * 0.35 + 0.4);
+          });
         });
       }
     } catch(e) { /* 오디오 지원 안 하는 환경 무시 */ }
@@ -1601,14 +1624,16 @@ function useFirebaseGame() {
     const snap = await get(ref(db, `rooms/${roomCode}/game/readyForNext`));
     const readyList = snap.val() || [];
     if (readyList.includes(uid)) return;
-    const newList = [...readyList, uid];
+
+    const botIds = roomData?.game?.botIds ?? [];
+    // 봇들도 자동으로 준비 완료
+    const newList = [...new Set([...readyList, uid, ...botIds])];
     const playerCount = Object.keys(roomData?.players ?? {}).length;
 
     const updates = {};
     updates[`rooms/${roomCode}/game/readyForNext`] = newList;
 
     if (newList.length >= playerCount) {
-      // 모두 준비 → 세금 단계로
       const ranks = roomData?.game?.ranks ?? {};
       const hasDalmuti = Object.values(ranks).includes("dalmuti");
       const hasPrime = Object.values(ranks).includes("prime");
@@ -1618,7 +1643,6 @@ function useFirebaseGame() {
         updates[`rooms/${roomCode}/game/returnDone`] = {};
         updates[`rooms/${roomCode}/game/tributeReceived`] = {};
       } else {
-        // 1라운드라 계급 없음 → 바로 딜
         await update(ref(db), updates);
         await startGame();
         return;
