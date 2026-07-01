@@ -723,7 +723,7 @@ function MainScreen({ onCreateRoom, onJoinRoom, loading, isDevMode, onTestMode }
             </button>
             <button onClick={() => { if (!nickname.trim()) { setError("닉네임을 입력해주세요"); return; } onTestMode(nickname.trim()); }}
                 className="w-full py-3 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold transition-all shadow-lg active:scale-95">
-                🤖 혼자 테스트하기 (봇 4명)
+                혼자 테스트하기 (봇 4명)
               </button>
           </div>
         ) : (
