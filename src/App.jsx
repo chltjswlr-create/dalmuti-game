@@ -721,6 +721,7 @@ function MainScreen({ onCreateRoom, onJoinRoom, loading, isDevMode, onTestMode }
               className="w-full py-3 rounded-2xl bg-white/10 border border-white/10 text-white font-semibold hover:bg-white/15 transition-all active:scale-95">
               방 참여하기
             </button>
+            Test1
             <button onClick={() => { if (!nickname.trim()) { setError("닉네임을 입력해주세요"); return; } onTestMode(nickname.trim()); }}
                 className="w-full py-3 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold transition-all shadow-lg active:scale-95">
                 혼자 테스트하기 (봇 4명)
