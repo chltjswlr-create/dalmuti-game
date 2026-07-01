@@ -289,8 +289,8 @@ function Card({ card, selected, onClick, disabled, size = "md" }) {
           </span>
         </div>
       )}
-      {/* 하단 숫자 뒤집힘 */}
-      {!isJoker && <span className="absolute bottom-1 right-1.5 text-[9px] font-black rotate-180" style={{ color: col.text, opacity: 0.8 }}>{card.rank}</span>}
+      {/* 하단 숫자 (뒤집힘 없이 그대로) */}
+      {!isJoker && <span className="absolute bottom-1 right-1.5 text-[9px] font-black" style={{ color: col.text, opacity: 0.8 }}>{card.rank}</span>}
       {selected && (
         <span className="absolute -top-1 -right-1 bg-white text-blue-600 rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold shadow z-10">✓</span>
       )}
@@ -504,8 +504,8 @@ function GameTable({ gs, myId, onPlay, onPass }) {
           setTimeout(() => setDalmutEffect(null), 3000);
         }, 400);
         playSound('dalmuti');
-      } else if (latest.includes("아무도 낼 수 없어요")) {
-        const match = latest.match(/아무도 낼 수 없어요! (.+?)이\(가\)/);
+      } else if (latest.includes("🔄 아무도 낼 수 없어요")) {
+        const match = latest.match(/🔄 아무도 낼 수 없어요! (.+?)이\(가\)/);
         const winner = match?.[1] ?? "플레이어";
         setAutoClearEffect({ winner });
         setTimeout(() => setAutoClearEffect(null), 2500);
@@ -1559,20 +1559,29 @@ function useFirebaseGame() {
         } else {
           // 자동 패스 체크: 남은 플레이어 중 아무도 못 내면 바닥 초기화
           const botCardRank = nonJokerBot[0]?.rank;
+          const pileCountNeeded = cardsToPlay.length;
           const remainingActive = remaining.filter(id => id !== currentTurn);
-          const canAnyone = botCardRank && remainingActive.some(id => {
-            const hand = allHands[id] || [];
+
+          function canPlayerPlay(hand) {
             const nj = hand.filter(c => !c.joker);
             const jk = hand.filter(c => c.joker).length;
             const grps = {};
-            nj.forEach(c => { grps[c.rank] = (grps[c.rank] || []); grps[c.rank].push(c); });
+            nj.forEach(c => {
+              if (!grps[c.rank]) grps[c.rank] = [];
+              grps[c.rank].push(c);
+            });
             return Object.entries(grps).some(([r, arr]) =>
-              parseInt(r) < botCardRank && (arr.length >= cardsToPlay.length || arr.length + jk >= cardsToPlay.length)
+              parseInt(r) < botCardRank &&
+              (arr.length >= pileCountNeeded || arr.length + jk >= pileCountNeeded)
             );
-          });
+          }
+
+          const canAnyone = botCardRank && remainingActive.some(id =>
+            canPlayerPlay(allHands[id] || [])
+          );
 
           if (!canAnyone && remainingActive.length > 0 && botCardRank) {
-            newLog.push(`아무도 낼 수 없어요! ${botNick}이(가) 새로 시작합니다`);
+            newLog.push(`🔄 아무도 낼 수 없어요! ${botNick}이(가) 새로 시작합니다`);
             updates[`rooms/${roomCode}/game/pile`] = [];
             updates[`rooms/${roomCode}/game/passCount`] = 0;
             updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
@@ -1771,22 +1780,23 @@ function useFirebaseGame() {
       }
 
       // 남은 플레이어 중 아무도 낼 수 없으면 자동으로 바닥 초기화
-      const canAnyone = remaining.filter(id => id !== playerId).some(id => {
-        const hand = allHands[id] || [];
-        const nonJokerHand = hand.filter(c => !c.joker);
-        const jokerCount = hand.filter(c => c.joker).length;
-        const groups = {};
-        nonJokerHand.forEach(c => { if (!groups[c.rank]) groups[c.rank] = []; groups[c.rank].push(c); });
-        return Object.entries(groups).some(([rank, arr]) => {
-          if (parseInt(rank) >= cardRank) return false;
-          if (arr.length >= cards.length) return true;
-          if (arr.length + jokerCount >= cards.length) return true;
-          return false;
-        });
-      });
+      const pileCountNeeded = cards.length;
+      function canPlayerPlayCards(hand) {
+        const nj = hand.filter(c => !c.joker);
+        const jk = hand.filter(c => c.joker).length;
+        const grps = {};
+        nj.forEach(c => { if (!grps[c.rank]) grps[c.rank] = []; grps[c.rank].push(c); });
+        return Object.entries(grps).some(([r, arr]) =>
+          parseInt(r) < cardRank &&
+          (arr.length >= pileCountNeeded || arr.length + jk >= pileCountNeeded)
+        );
+      }
+      const canAnyone = cardRank && remaining.filter(id => id !== playerId).some(id =>
+        canPlayerPlayCards(allHands[id] || [])
+      );
 
       if (!canAnyone && remaining.filter(id => id !== playerId).length > 0) {
-        newLog.push(`아무도 낼 수 없어요! ${playerNick}이(가) 새로 시작합니다`);
+        newLog.push(`🔄 아무도 낼 수 없어요! ${playerNick}이(가) 새로 시작합니다`);
         updates[`rooms/${roomCode}/game/pile`] = [];
         updates[`rooms/${roomCode}/game/passCount`] = 0;
         updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
