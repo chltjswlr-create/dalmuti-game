@@ -1351,6 +1351,7 @@ function useFirebaseGame() {
       // 화면 전환 로직
       const status = data.meta?.status;
       if (status === "waiting") setScreen("lobby");
+      else if (status === "drawing") setScreen("drawing");
       else if (status === "tax") {
         setScreen("tax");
         const recv = data.game?.tributeReceived || {};
@@ -1835,32 +1836,30 @@ function useFirebaseGame() {
     botIds.forEach((id, i) => {
       allPlayers[id] = { nickname: botNames[i], isHost: false, joinedAt: Date.now(), cardCount: 0, rank: null, isConnected: true, isBot: true };
     });
+
+    const playerIds = [uid, ...botIds];
+
+    // 봇 카드 자동 뽑기 (사용자는 직접 뽑게)
+    const usedRanks = new Set();
+    const drawnCards = {};
+    botIds.forEach((id, i) => {
+      const available = [];
+      for (let r = 1; r <= 13; r++) { if (!usedRanks.has(r)) available.push(r); }
+      const rank = available[Math.floor(Math.random() * available.length)];
+      usedRanks.add(rank);
+      drawnCards[id] = { rank, nickname: botNames[i] };
+    });
+
     await set(ref(db, `rooms/${code}`), {
-      meta: { hostId: uid, status: "waiting", createdAt: Date.now() },
+      meta: { hostId: uid, status: "drawing", createdAt: Date.now() },
       players: allPlayers,
-      game: { round: 0, finished: [], log: ["[테스트 모드] 봇 4명과 함께 시작합니다!"] }
+      game: {
+        round: 1, finished: [], botIds, isTestMode: true,
+        drawnCards,
+        log: ["[테스트 모드] 카드를 뽑아 계급을 정합니다!"]
+      }
     });
     setRoomCode(code);
-    // 바로 게임 시작
-    const playerIds = [uid, ...botIds];
-    const hands = dealCards(playerIds);
-    const updates = {};
-    updates[`rooms/${code}/meta/status`] = "playing";
-    updates[`rooms/${code}/game/pile`] = [];
-    updates[`rooms/${code}/game/currentTurn`] = uid;
-    updates[`rooms/${code}/game/passCount`] = 0;
-    updates[`rooms/${code}/game/lastPlayerId`] = null;
-    updates[`rooms/${code}/game/finished`] = [];
-    updates[`rooms/${code}/game/round`] = 1;
-    updates[`rooms/${code}/game/log`] = ["[테스트 모드] 게임 시작! 봇들은 자동으로 플레이해요."];
-    playerIds.forEach(id => {
-      updates[`rooms/${code}/hands/${id}`] = hands[id];
-      updates[`rooms/${code}/players/${id}/cardCount`] = hands[id].length;
-    });
-    // 봇 손패를 game/botHands에 저장 (봇 AI용)
-    updates[`rooms/${code}/game/botIds`] = botIds;
-    updates[`rooms/${code}/game/isTestMode`] = true;
-    await update(ref(db), updates);
   }
 
   // ── 방 만들기 ──────────────────────────────────────────────
@@ -1894,27 +1893,88 @@ function useFirebaseGame() {
     return { ok: true };
   }
 
-  // ── 게임 시작 (방장만) ────────────────────────────────────
+  // ── 게임 시작 (방장만) - 첫판은 카드 뽑기로 계급 결정 ────
   async function startGame() {
     const snap = await get(ref(db, `rooms/${roomCode}/players`));
     const players = snap.val();
     const playerIds = Object.keys(players);
-    const hands = dealCards(playerIds);
+    const currentRound = roomData?.game?.round ?? 0;
 
+    if (currentRound === 0) {
+      // 첫판: 카드 뽑기 화면으로
+      await update(ref(db), {
+        [`rooms/${roomCode}/meta/status`]: "drawing",
+        [`rooms/${roomCode}/game/round`]: 1,
+        [`rooms/${roomCode}/game/drawnCards`]: {},
+        [`rooms/${roomCode}/game/log`]: ["카드를 한 장씩 뽑아 계급을 정합니다!"],
+      });
+    } else {
+      // 2라운드 이후: 기존 방식
+      await startRound(playerIds);
+    }
+  }
+
+  // ── 실제 라운드 시작 ──────────────────────────────────────
+  async function startRound(playerIds) {
+    const hands = dealCards(playerIds);
     const updates = {};
     updates[`rooms/${roomCode}/meta/status`] = "playing";
     updates[`rooms/${roomCode}/game/pile`] = [];
-    updates[`rooms/${roomCode}/game/currentTurn`] = playerIds[0];
     updates[`rooms/${roomCode}/game/passCount`] = 0;
     updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
     updates[`rooms/${roomCode}/game/finished`] = [];
     updates[`rooms/${roomCode}/game/round`] = (roomData?.game?.round ?? 0) + 1;
-    updates[`rooms/${roomCode}/game/log`] = ["게임 시작! 첫 번째 플레이어부터 시작하세요."];
+    updates[`rooms/${roomCode}/game/log`] = ["게임 시작!"];
     playerIds.forEach(id => {
       updates[`rooms/${roomCode}/hands/${id}`] = hands[id];
       updates[`rooms/${roomCode}/players/${id}/cardCount`] = hands[id].length;
     });
+    // 달무티가 선, 없으면 첫 번째 플레이어
+    const ranks = roomData?.game?.ranks ?? {};
+    const dalmutiId = Object.keys(ranks).find(id => ranks[id] === "dalmuti") ?? playerIds[0];
+    updates[`rooms/${roomCode}/game/currentTurn`] = dalmutiId;
     await update(ref(db), updates);
+  }
+  // ── 카드 뽑기 (첫판 계급 결정) ──────────────────────────
+  async function drawCard() {
+    const drawnSnap = await get(ref(db, `rooms/${roomCode}/game/drawnCards`));
+    const drawn = drawnSnap.val() || {};
+    if (drawn[uid]) return; // 이미 뽑음
+
+    // 이미 뽑힌 카드 제외하고 랜덤 뽑기 (1~12, 조커=13)
+    const usedRanks = Object.values(drawn).map((d) => d.rank);
+    const available = [];
+    for (let r = 1; r <= 13; r++) {
+      if (!usedRanks.includes(r)) available.push(r);
+    }
+    const rank = available[Math.floor(Math.random() * available.length)];
+    const nickname = roomData?.players?.[uid]?.nickname;
+
+    await update(ref(db), {
+      [`rooms/${roomCode}/game/drawnCards/${uid}`]: { rank, nickname },
+    });
+
+    // 모두 뽑았으면 계급 확정 후 tax로
+    const allPlayerIds = Object.keys(roomData?.players ?? {});
+    const newDrawn = { ...drawn, [uid]: { rank, nickname } };
+    if (Object.keys(newDrawn).length >= allPlayerIds.length) {
+      // 낮은 숫자 = 높은 계급
+      const sorted = allPlayerIds.sort((a, b) =>
+        (newDrawn[a]?.rank ?? 99) - (newDrawn[b]?.rank ?? 99)
+      );
+      const ranks = assignRanks(sorted, allPlayerIds.length);
+      const rankUpdates = {};
+      allPlayerIds.forEach(id => {
+        rankUpdates[`rooms/${roomCode}/players/${id}/rank`] = ranks[id];
+      });
+      rankUpdates[`rooms/${roomCode}/game/ranks`] = ranks;
+      rankUpdates[`rooms/${roomCode}/meta/status`] = "tax";
+      rankUpdates[`rooms/${roomCode}/game/tributeDone`] = {};
+      rankUpdates[`rooms/${roomCode}/game/returnDone`] = {};
+      rankUpdates[`rooms/${roomCode}/game/tributeReceived`] = {};
+      rankUpdates[`rooms/${roomCode}/game/log`] = ["계급이 확정됐습니다! 세금을 납부하세요."];
+      await update(ref(db), rankUpdates);
+    }
   }
 
   // ── 카드 내기 ─────────────────────────────────────────────
@@ -2187,20 +2247,11 @@ function useFirebaseGame() {
     const allDone = requiredReturns.every(id => returnDone[id]);
 
     if (allDone) {
-      // 세금 완료 → 게임 시작
-      updates[`rooms/${roomCode}/meta/status`] = "playing";
+      await update(ref(db), updates);
       const playerIds = Object.keys(roomData?.players ?? {});
-      // 달무티가 첫 번째 선
-      const dalmutiId = Object.keys(ranks).find(id => ranks[id] === "dalmuti");
-      updates[`rooms/${roomCode}/game/currentTurn`] = dalmutiId;
-      updates[`rooms/${roomCode}/game/pile`] = [];
-      updates[`rooms/${roomCode}/game/passCount`] = 0;
-      updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
-      updates[`rooms/${roomCode}/game/finished`] = [];
-      updates[`rooms/${roomCode}/game/log`] = ["세금 완료! 달무티부터 시작합니다."];
-      updates[`rooms/${roomCode}/game/tributeDone`] = {};
-      updates[`rooms/${roomCode}/game/returnDone`] = {};
-      updates[`rooms/${roomCode}/game/tributeReceived`] = {};
+      const isFirstRound = (roomData?.game?.round ?? 1) === 1;
+      await startRound(playerIds, isFirstRound);
+      return;
     }
 
     await update(ref(db), updates);
@@ -2213,7 +2264,6 @@ function useFirebaseGame() {
     if (readyList.includes(uid)) return;
 
     const botIds = roomData?.game?.botIds ?? [];
-    // 봇들도 자동으로 준비 완료
     const newList = [...new Set([...readyList, uid, ...botIds])];
     const playerCount = Object.keys(roomData?.players ?? {}).length;
 
@@ -2230,8 +2280,10 @@ function useFirebaseGame() {
         updates[`rooms/${roomCode}/game/returnDone`] = {};
         updates[`rooms/${roomCode}/game/tributeReceived`] = {};
       } else {
+        // 계급 없는 경우 (세금 없는 라운드)
+        const playerIds = Object.keys(roomData?.players ?? {});
         await update(ref(db), updates);
-        await startGame();
+        await startRound(playerIds);
         return;
       }
     }
@@ -2271,6 +2323,68 @@ function useFirebaseGame() {
 
 // 앱 로드 시점 개발모드 (탭 5번으로 활성화)
 const IS_DEV_MODE = false; // 아래 MainScreen에서 탭으로 활성화
+
+// ── 카드 뽑기 화면 ───────────────────────────────────────────
+function DrawingScreen({ players, selfId, drawnCards, onDraw }) {
+  const myDrawn = drawnCards?.[selfId];
+  const RANK_NAME = {1:"달무티",2:"대주교",3:"귀족",4:"귀족부인",5:"총리",6:"점성술사",7:"기사",8:"재봉사",9:"농부",10:"요리사",11:"노예",12:"대노예",13:"어릿광대"};
+  const RANK_EMOJI = ['👑','✝','🏰','👸','🤵','🔮','⚔','🧵','🌾','🍳','🔗','⛓'];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-emerald-950 flex flex-col items-center justify-center p-6">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="text-5xl mb-3">🎴</div>
+          <h2 className="text-white text-2xl font-black">계급 결정</h2>
+          <p className="text-white/50 text-sm mt-2">카드를 한 장씩 뽑아 계급을 정합니다</p>
+          <p className="text-white/30 text-xs mt-1">낮은 숫자 = 높은 계급 (조커 = 13번)</p>
+        </div>
+        {!myDrawn ? (
+          <div className="flex flex-col items-center gap-4 mb-6">
+            <button onClick={onDraw}
+              className="w-32 h-44 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-800 border-2 border-emerald-400/50 shadow-2xl flex flex-col items-center justify-center gap-2 active:scale-95 transition-all hover:scale-105">
+              <span className="text-5xl">🎴</span>
+              <span className="text-white font-bold text-sm">카드 뽑기</span>
+            </button>
+            <p className="text-white/40 text-xs">탭해서 카드를 뽑으세요!</p>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-3 mb-6">
+            <div className="w-32 h-44 rounded-2xl shadow-2xl flex flex-col items-center justify-center gap-2 pop-in"
+              style={{ background: myDrawn.rank <= 4 ? '#7f1d1d' : myDrawn.rank <= 7 ? '#713f12' : myDrawn.rank <= 10 ? '#1e3a5f' : '#1a0a2e' }}>
+              <span className="text-4xl">{myDrawn.rank === 13 ? '🃏' : RANK_EMOJI[myDrawn.rank - 1]}</span>
+              <span className="text-white font-black text-2xl">{myDrawn.rank === 13 ? 'J' : myDrawn.rank}</span>
+              <span className="text-white/80 text-xs font-bold">{RANK_NAME[myDrawn.rank]}</span>
+            </div>
+            <p className="text-emerald-400 font-bold">✅ 뽑기 완료!</p>
+          </div>
+        )}
+        <div className="bg-black/30 rounded-2xl p-4 space-y-2">
+          <p className="text-white/40 text-xs uppercase tracking-widest mb-3">뽑기 현황 ({Object.keys(drawnCards ?? {}).length}/{players.length})</p>
+          {players.map(p => {
+            const drawn = drawnCards?.[p.id];
+            return (
+              <div key={p.id} className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/5">
+                <div className="flex items-center gap-2">
+                  <span className="text-white/70 text-sm font-medium">{p.nickname}</span>
+                  {p.id === selfId && <span className="text-emerald-400 text-xs">나</span>}
+                </div>
+                {drawn ? (
+                  <span className="text-yellow-400 font-black">
+                    {drawn.rank === 13 ? '🃏 조커' : `${drawn.rank}번 · ${RANK_NAME[drawn.rank]}`}
+                  </span>
+                ) : (
+                  <span className="text-white/20 text-sm">대기 중...</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-center text-white/30 text-xs mt-4">모든 플레이어가 뽑으면 자동으로 계급이 정해집니다</p>
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const {
@@ -2313,6 +2427,16 @@ export default function App() {
         isHost={isHost}
         onStart={startGame}
         onCopy={handleCopy}
+      />
+    );
+
+  if (screen === "drawing")
+    return (
+      <DrawingScreen
+        players={players}
+        selfId={uid}
+        drawnCards={roomData?.game?.drawnCards ?? {}}
+        onDraw={drawCard}
       />
     );
 
