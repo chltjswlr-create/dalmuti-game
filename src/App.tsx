@@ -457,6 +457,7 @@ function TaxScreen({ myId, myHand, ranks, tributeMap, onTributeDone, onReturnDon
 function GameTable({ gs, myId, onPlay, onPass }) {
   const [selected, setSelected] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [dalmutEffect, setDalmutEffect] = useState(null); // { nickname }
   const { players, pile, currentTurn, round, log, ranks } = gs;
   const myHand = gs.myHand || [];
   const isMyTurn = currentTurn === myId;
@@ -467,6 +468,19 @@ function GameTable({ gs, myId, onPlay, onPass }) {
   useEffect(() => {
     setSelected([]);
   }, [currentTurn]);
+
+  // 1번 카드 이펙트: 로그에 "✨ 1번 카드!" 가 있으면 이펙트 표시
+  useEffect(() => {
+    if (!log || !log.length) return;
+    const latest = log[log.length - 1];
+    if (latest && latest.includes("✨ 1번 카드")) {
+      const match = latest.match(/^(.+?)이\(가\)/);
+      const nickname = match?.[1] ?? "플레이어";
+      setDalmutEffect({ nickname });
+      const timer = setTimeout(() => setDalmutEffect(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [log?.length]);
 
   function toggle(card) {
     setSelected(prev =>
@@ -498,6 +512,34 @@ function GameTable({ gs, myId, onPlay, onPass }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-green-900 to-teal-950 flex flex-col">
+
+      {/* 1번 카드 이펙트 오버레이 */}
+      {dalmutEffect && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+          <div className="text-center animate-bounce">
+            <div className="text-8xl mb-2">👑</div>
+            <div className="bg-yellow-400/90 text-yellow-900 font-black text-2xl px-6 py-3 rounded-2xl shadow-2xl">
+              {dalmutEffect.nickname}
+            </div>
+            <div className="text-white font-bold text-lg mt-2 drop-shadow-lg">
+              달무티 카드 등장!
+            </div>
+            <div className="text-6xl mt-2">✨🎊✨</div>
+          </div>
+          {/* 파티클 효과 */}
+          {["👑","🎊","✨","🌟","💫"].map((emoji, i) => (
+            <div key={i} className="absolute text-3xl animate-ping"
+              style={{
+                top: `${10 + i * 18}%`,
+                left: `${5 + i * 20}%`,
+                animationDelay: `${i * 0.2}s`,
+                animationDuration: '1s'
+              }}>
+              {emoji}
+            </div>
+          ))}
+        </div>
+      )}
       {/* 히스토리 팝업 */}
       {showHistory && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
