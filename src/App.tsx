@@ -1539,6 +1539,7 @@ function useFirebaseGame() {
   // (App 컴포넌트 최상단에서 처리하므로 여기선 제거)
 
   // ── 봇 AI: 봇 차례일 때 자동 플레이 ──────────────────────
+  const botLock = useRef(false);
   useEffect(() => {
     if (!roomData || !roomCode) return;
     const game = roomData.game;
@@ -1547,12 +1548,22 @@ function useFirebaseGame() {
 
     const currentTurn = game.currentTurn;
     const botIds = game.botIds;
-    if (!botIds.includes(currentTurn)) return; // 봇 차례가 아님
+    if (!botIds.includes(currentTurn)) return;
 
-    // 1~2초 딜레이 후 봇 플레이
-    const delay = 1000 + Math.random() * 1000;
+    // 중복 실행 방지 락
+    if (botLock.current) return;
+    botLock.current = true;
+
+    const delay = 1000 + Math.random() * 800;
     const timer = setTimeout(async () => {
-      // 봇 손패 가져오기
+      try {
+        // Firebase에서 최신 currentTurn 확인 (딜레이 중 변경됐을 수 있음)
+        const freshSnap = await get(ref(db, `rooms/${roomCode}/game/currentTurn`));
+        if (freshSnap.val() !== currentTurn) {
+          botLock.current = false;
+          return; // 이미 턴이 바뀜
+        }
+        // 봇 손패 가져오기
       const handSnap = await get(ref(db, `rooms/${roomCode}/hands/${currentTurn}`));
       const botHand = handSnap.val() || [];
       if (!botHand.length) {
@@ -1794,11 +1805,16 @@ function useFirebaseGame() {
         // 로그는 모든 newLog.push 완료 후 마지막에 저장
         updates[`rooms/${roomCode}/game/log`] = newLog.slice(-30);
         await update(ref(db), updates);
+      } finally {
+        botLock.current = false;
       }
     }, delay);
 
-    return () => clearTimeout(timer);
-  }, [roomData?.game?.currentTurn, roomData?.game?.passCount, roomData?.game?.pile?.length, roomData?.game?.log?.length, roomCode]);
+    return () => {
+      clearTimeout(timer);
+      botLock.current = false;
+    };
+  }, [roomData?.game?.currentTurn, roomData?.game?.passCount, roomCode]);
 
   // ── 테스트 모드: 봇 4명과 함께 방 만들기 ──────────────────
   async function startTestGame(nickname) {
