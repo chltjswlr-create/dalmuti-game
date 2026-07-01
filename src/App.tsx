@@ -221,78 +221,49 @@ function generateRoomCode() {
 //  3. UI 컴포넌트
 // ================================================================
 
-// ── 카드별 역할 및 SVG 아이콘 ────────────────────────────────
-const CARD_ROLE = {
-  1:  { name: "달무티",    emoji: "👑", color: "from-yellow-300 to-amber-500", text: "text-yellow-900",
-        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.15)"/><text x="20" y="16" textAnchor="middle" fontSize="14" fill="gold">👑</text><text x="20" y="28" textAnchor="middle" fontSize="7" fill="rgba(0,0,0,0.6)" fontWeight="bold">DALMUTI</text></svg> },
-  2:  { name: "대주교",    emoji: "✝️", color: "from-red-400 to-rose-600", text: "text-white",
-        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.15)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="white">✝️</text></svg> },
-  3:  { name: "귀족",      emoji: "🏰", color: "from-red-400 to-red-600", text: "text-white",
-        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.15)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="white">🏰</text></svg> },
-  4:  { name: "귀족부인",  emoji: "👸", color: "from-orange-400 to-red-500", text: "text-white",
-        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.15)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="white">👸</text></svg> },
-  5:  { name: "총리",      emoji: "🤵", color: "from-amber-300 to-amber-500", text: "text-amber-900",
-        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.1)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="rgba(0,0,0,0.7)">🤵</text></svg> },
-  6:  { name: "점성술사",  emoji: "🔮", color: "from-amber-300 to-yellow-500", text: "text-amber-900",
-        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.1)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="rgba(0,0,0,0.7)">🔮</text></svg> },
-  7:  { name: "기사",      emoji: "⚔️", color: "from-yellow-300 to-amber-400", text: "text-amber-900",
-        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.1)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="rgba(0,0,0,0.7)">⚔️</text></svg> },
-  8:  { name: "재봉사",    emoji: "🧵", color: "from-slate-300 to-slate-400", text: "text-slate-800",
-        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.08)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="rgba(0,0,0,0.6)">🧵</text></svg> },
-  9:  { name: "농부",      emoji: "🌾", color: "from-slate-200 to-slate-400", text: "text-slate-800",
-        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.08)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="rgba(0,0,0,0.6)">🌾</text></svg> },
-  10: { name: "요리사",    emoji: "🍳", color: "from-slate-200 to-slate-300", text: "text-slate-800",
-        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.08)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="rgba(0,0,0,0.6)">🍳</text></svg> },
-  11: { name: "노예",      emoji: "🔗", color: "from-slate-300 to-slate-500", text: "text-slate-800",
-        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.08)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="rgba(0,0,0,0.6)">🔗</text></svg> },
-  12: { name: "대노예",    emoji: "⛓️", color: "from-slate-400 to-slate-600", text: "text-white",
-        svg: <svg viewBox="0 0 40 40" className="w-full h-full"><circle cx="20" cy="20" r="18" fill="rgba(0,0,0,0.15)"/><text x="20" y="26" textAnchor="middle" fontSize="18" fill="white">⛓️</text></svg> },
+// ── 카드별 역할 및 상세 SVG 아이콘 ──────────────────────────
+const CARD_SVG = {
+  1:  (s) => <svg viewBox="0 0 44 60"><defs><radialGradient id="g1" cx="50%" cy="30%"><stop offset="0%" stopColor="#fde68a"/><stop offset="100%" stopColor="#d97706"/></radialGradient></defs><rect width="44" height="60" rx="4" fill="url(#g1)"/><circle cx="22" cy="20" r="11" fill="rgba(0,0,0,0.15)"/><text x="22" y="25" textAnchor="middle" fontSize="14" fill="#7c2d12">👑</text>{!s&&<text x="22" y="42" textAnchor="middle" fontSize="6" fill="#7c2d12" fontWeight="bold">달무티</text>}<text x="3" y="9" fontSize="7" fill="#7c2d12" fontWeight="bold">1</text><text x="41" y="58" fontSize="7" fill="#7c2d12" fontWeight="bold" transform="rotate(180,41,58)">1</text></svg>,
+  2:  (s) => <svg viewBox="0 0 44 60"><rect width="44" height="60" rx="4" fill="#be123c"/><rect x="2" y="2" width="40" height="56" rx="3" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1"/><line x1="22" y1="10" x2="22" y2="32" stroke="white" strokeWidth="3"/><line x1="13" y1="18" x2="31" y2="18" stroke="white" strokeWidth="3"/><circle cx="22" cy="10" r="3" fill="white"/>{!s&&<text x="22" y="45" textAnchor="middle" fontSize="6" fill="white" fontWeight="bold">대주교</text>}<text x="3" y="9" fontSize="7" fill="white" fontWeight="bold">2</text><text x="41" y="58" fontSize="7" fill="white" fontWeight="bold" transform="rotate(180,41,58)">2</text></svg>,
+  3:  (s) => <svg viewBox="0 0 44 60"><rect width="44" height="60" rx="4" fill="#dc2626"/><rect x="12" y="8" width="20" height="22" fill="rgba(255,255,255,0.9)" rx="1"/><rect x="8" y="28" width="28" height="4" fill="rgba(255,255,255,0.9)"/><rect x="15" y="2" width="5" height="8" fill="rgba(255,255,255,0.9)"/><rect x="24" y="2" width="5" height="8" fill="rgba(255,255,255,0.9)"/><rect x="18" y="16" width="8" height="14" fill="#dc2626"/>{!s&&<text x="22" y="45" textAnchor="middle" fontSize="6" fill="white" fontWeight="bold">귀족</text>}<text x="3" y="9" fontSize="7" fill="white" fontWeight="bold">3</text><text x="41" y="58" fontSize="7" fill="white" fontWeight="bold" transform="rotate(180,41,58)">3</text></svg>,
+  4:  (s) => <svg viewBox="0 0 44 60"><rect width="44" height="60" rx="4" fill="#ea580c"/><circle cx="22" cy="17" r="7" fill="rgba(255,255,255,0.9)"/><path d="M12 32 Q22 24 32 32 L30 36 Q22 30 14 36 Z" fill="rgba(255,255,255,0.9)"/><circle cx="19" cy="15" r="1.5" fill="#ea580c"/><circle cx="25" cy="15" r="1.5" fill="#ea580c"/>{!s&&<text x="22" y="46" textAnchor="middle" fontSize="6" fill="white" fontWeight="bold">귀족부인</text>}<text x="3" y="9" fontSize="7" fill="white" fontWeight="bold">4</text><text x="41" y="58" fontSize="7" fill="white" fontWeight="bold" transform="rotate(180,41,58)">4</text></svg>,
+  5:  (s) => <svg viewBox="0 0 44 60"><defs><linearGradient id="g5" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#fbbf24"/><stop offset="100%" stopColor="#d97706"/></linearGradient></defs><rect width="44" height="60" rx="4" fill="url(#g5)"/><circle cx="22" cy="17" r="6" fill="rgba(0,0,0,0.2)"/><rect x="16" y="23" width="12" height="10" rx="2" fill="rgba(0,0,0,0.2)"/><rect x="14" y="10" width="16" height="4" rx="1" fill="rgba(0,0,0,0.25)"/>{!s&&<text x="22" y="45" textAnchor="middle" fontSize="6" fill="#7c2d12" fontWeight="bold">총리</text>}<text x="3" y="9" fontSize="7" fill="#7c2d12" fontWeight="bold">5</text><text x="41" y="58" fontSize="7" fill="#7c2d12" fontWeight="bold" transform="rotate(180,41,58)">5</text></svg>,
+  6:  (s) => <svg viewBox="0 0 44 60"><rect width="44" height="60" rx="4" fill="#ca8a04"/><circle cx="22" cy="18" r="8" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.5)" strokeWidth="1"/><circle cx="22" cy="18" r="4" fill="rgba(255,255,255,0.9)"/><line x1="22" y1="8" x2="22" y2="28" stroke="rgba(255,255,255,0.4)" strokeWidth="1"/><line x1="12" y1="18" x2="32" y2="18" stroke="rgba(255,255,255,0.4)" strokeWidth="1"/>{!s&&<text x="22" y="45" textAnchor="middle" fontSize="6" fill="white" fontWeight="bold">점성술사</text>}<text x="3" y="9" fontSize="7" fill="white" fontWeight="bold">6</text><text x="41" y="58" fontSize="7" fill="white" fontWeight="bold" transform="rotate(180,41,58)">6</text></svg>,
+  7:  (s) => <svg viewBox="0 0 44 60"><rect width="44" height="60" rx="4" fill="#a16207"/><line x1="22" y1="6" x2="22" y2="30" stroke="rgba(255,255,255,0.9)" strokeWidth="3" strokeLinecap="round"/><line x1="22" y1="6" x2="16" y2="14" stroke="rgba(255,255,255,0.9)" strokeWidth="2.5" strokeLinecap="round"/><line x1="22" y1="6" x2="28" y2="14" stroke="rgba(255,255,255,0.9)" strokeWidth="2.5" strokeLinecap="round"/><ellipse cx="22" cy="31" rx="5" ry="3" fill="rgba(255,255,255,0.7)"/>{!s&&<text x="22" y="45" textAnchor="middle" fontSize="6" fill="white" fontWeight="bold">기사</text>}<text x="3" y="9" fontSize="7" fill="white" fontWeight="bold">7</text><text x="41" y="58" fontSize="7" fill="white" fontWeight="bold" transform="rotate(180,41,58)">7</text></svg>,
+  8:  (s) => <svg viewBox="0 0 44 60"><rect width="44" height="60" rx="4" fill="#94a3b8"/><circle cx="18" cy="16" r="4" fill="rgba(255,255,255,0.8)"/><line x1="18" y1="16" x2="30" y2="28" stroke="rgba(255,255,255,0.9)" strokeWidth="2"/><circle cx="30" cy="28" r="3" fill="rgba(255,255,255,0.6)" stroke="rgba(255,255,255,0.9)" strokeWidth="1"/>{!s&&<text x="22" y="45" textAnchor="middle" fontSize="6" fill="white" fontWeight="bold">재봉사</text>}<text x="3" y="9" fontSize="7" fill="white" fontWeight="bold">8</text><text x="41" y="58" fontSize="7" fill="white" fontWeight="bold" transform="rotate(180,41,58)">8</text></svg>,
+  9:  (s) => <svg viewBox="0 0 44 60"><rect width="44" height="60" rx="4" fill="#78716c"/><rect x="10" y="24" width="24" height="8" rx="1" fill="rgba(255,255,255,0.7)"/><rect x="16" y="16" width="4" height="10" fill="rgba(255,255,255,0.9)"/><rect x="24" y="16" width="4" height="10" fill="rgba(255,255,255,0.9)"/><line x1="14" y1="12" x2="20" y2="16" stroke="rgba(255,255,255,0.7)" strokeWidth="2"/><line x1="30" y1="12" x2="24" y2="16" stroke="rgba(255,255,255,0.7)" strokeWidth="2"/>{!s&&<text x="22" y="45" textAnchor="middle" fontSize="6" fill="white" fontWeight="bold">농부</text>}<text x="3" y="9" fontSize="7" fill="white" fontWeight="bold">9</text><text x="41" y="58" fontSize="7" fill="white" fontWeight="bold" transform="rotate(180,41,58)">9</text></svg>,
+  10: (s) => <svg viewBox="0 0 44 60"><rect width="44" height="60" rx="4" fill="#64748b"/><circle cx="22" cy="14" r="7" fill="rgba(255,255,255,0.8)"/><rect x="10" y="14" width="24" height="3" rx="1" fill="rgba(255,255,255,0.6)"/><ellipse cx="22" cy="22" rx="10" ry="3" fill="rgba(255,255,255,0.4)"/>{!s&&<text x="22" y="45" textAnchor="middle" fontSize="6" fill="white" fontWeight="bold">요리사</text>}<text x="3" y="9" fontSize="7" fill="white" fontWeight="bold">10</text><text x="41" y="58" fontSize="7" fill="white" fontWeight="bold" transform="rotate(180,41,58)">10</text></svg>,
+  11: (s) => <svg viewBox="0 0 44 60"><rect width="44" height="60" rx="4" fill="#475569"/><circle cx="16" cy="15" r="4" fill="rgba(255,255,255,0.5)" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5"/><circle cx="28" cy="15" r="4" fill="rgba(255,255,255,0.5)" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5"/><line x1="20" y1="15" x2="24" y2="15" stroke="rgba(255,255,255,0.7)" strokeWidth="2"/>{!s&&<text x="22" y="45" textAnchor="middle" fontSize="6" fill="rgba(255,255,255,0.7)" fontWeight="bold">노예</text>}<text x="3" y="9" fontSize="7" fill="rgba(255,255,255,0.6)" fontWeight="bold">11</text><text x="41" y="58" fontSize="7" fill="rgba(255,255,255,0.6)" fontWeight="bold" transform="rotate(180,41,58)">11</text></svg>,
+  12: (s) => <svg viewBox="0 0 44 60"><rect width="44" height="60" rx="4" fill="#1e293b"/><circle cx="15" cy="13" r="3" fill="rgba(255,255,255,0.3)" stroke="rgba(255,255,255,0.4)" strokeWidth="1"/><circle cx="29" cy="13" r="3" fill="rgba(255,255,255,0.3)" stroke="rgba(255,255,255,0.4)" strokeWidth="1"/><circle cx="22" cy="23" r="3" fill="rgba(255,255,255,0.3)" stroke="rgba(255,255,255,0.4)" strokeWidth="1"/><line x1="18" y1="13" x2="26" y2="13" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5"/><line x1="17" y1="16" x2="20" y2="20" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5"/><line x1="27" y1="16" x2="24" y2="20" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5"/>{!s&&<text x="22" y="45" textAnchor="middle" fontSize="6" fill="rgba(255,255,255,0.4)" fontWeight="bold">대노예</text>}<text x="3" y="9" fontSize="7" fill="rgba(255,255,255,0.4)" fontWeight="bold">12</text><text x="41" y="58" fontSize="7" fill="rgba(255,255,255,0.4)" fontWeight="bold" transform="rotate(180,41,58)">12</text></svg>,
+  joker: (s) => <svg viewBox="0 0 44 60"><defs><linearGradient id="gj" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#7c3aed"/><stop offset="100%" stopColor="#db2777"/></linearGradient></defs><rect width="44" height="60" rx="4" fill="url(#gj)"/><rect x="2" y="2" width="40" height="56" rx="3" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1"/><polygon points="22,6 26,16 37,16 28,23 31,34 22,27 13,34 16,23 7,16 18,16" fill="rgba(255,255,255,0.9)"/>{!s&&<text x="22" y="48" textAnchor="middle" fontSize="6" fill="rgba(255,255,255,0.9)" fontWeight="bold">어릿광대</text>}</svg>,
 };
 
 // ── 카드 ──────────────────────────────────────────────────────
 function Card({ card, selected, onClick, disabled, size = "md" }) {
   const isJoker = card.joker;
-  const role = isJoker ? null : CARD_ROLE[card.rank];
-  const gradColor = isJoker ? "from-purple-500 to-pink-600" : (role?.color ?? "from-slate-300 to-slate-500");
-  const textColor = isJoker ? "text-white" : (role?.text ?? "text-white");
-  const sz = size === "sm" ? "w-12 h-16" : "w-16 h-24";
+  const small = size === "sm";
+  const sz = small ? "w-12 h-16" : "w-16 h-24";
+  const svgFn = isJoker ? CARD_SVG.joker : CARD_SVG[card.rank];
 
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`relative ${sz} rounded-xl shadow-lg border-2 flex flex-col items-center justify-center
-        font-bold select-none transition-all duration-150 bg-gradient-to-br ${gradColor} ${textColor}
-        ${selected ? "border-white scale-110 -translate-y-3 shadow-2xl" : "border-transparent"}
+      className={`relative ${sz} rounded-xl shadow-lg overflow-hidden select-none transition-all duration-150
+        ${selected ? "ring-2 ring-white scale-110 -translate-y-3 shadow-2xl" : "ring-0"}
         ${disabled ? "cursor-not-allowed" : "hover:-translate-y-1 hover:shadow-xl cursor-pointer"}`}
     >
-      {isJoker ? (
-        <div className="flex flex-col items-center justify-center">
-          <span className="text-3xl leading-none">🃏</span>
-          {size !== "sm" && <span className="text-[8px] opacity-80 font-bold mt-0.5">어릿광대</span>}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center w-full h-full p-0.5">
-          {/* 상단 숫자 */}
-          <span className="absolute top-0.5 left-1 text-[9px] font-black opacity-70">{card.rank}</span>
-          {/* 중앙 이모지 */}
-          <span className={`${size === "sm" ? "text-xl" : "text-2xl"} leading-none mt-1`}>{role?.emoji}</span>
-          {/* 하단 이름 */}
-          {size !== "sm" && (
-            <span className="text-[7px] font-bold opacity-75 text-center leading-tight mt-0.5 px-0.5">{role?.name}</span>
-          )}
-          {/* 하단 숫자 (뒤집힌) */}
-          <span className="absolute bottom-0.5 right-1 text-[9px] font-black opacity-70 rotate-180">{card.rank}</span>
-        </div>
-      )}
+      {svgFn ? svgFn(small) : <div className="w-full h-full bg-slate-500"/>}
       {selected && (
-        <span className="absolute -top-2 -right-2 bg-white text-blue-600 rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold shadow z-10">✓</span>
+        <span className="absolute -top-1 -right-1 bg-white text-blue-600 rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold shadow z-10">✓</span>
       )}
     </button>
   );
 }
 
+
 // ── 바닥 카드 ─────────────────────────────────────────────────
+const CARD_NAME = { 1:"달무티",2:"대주교",3:"귀족",4:"귀족부인",5:"총리",6:"점성술사",7:"기사",8:"재봉사",9:"농부",10:"요리사",11:"노예",12:"대노예" };
 function Pile({ pile }) {
   if (!pile || pile.length === 0)
     return (
@@ -301,7 +272,6 @@ function Pile({ pile }) {
       </div>
     );
   const pileRank = pile.find(c => !c.joker)?.rank;
-  const role = pileRank ? CARD_ROLE[pileRank] : null;
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="flex items-center justify-center gap-2 flex-wrap max-w-xs">
@@ -310,7 +280,7 @@ function Pile({ pile }) {
         ))}
       </div>
       <div className="text-white/70 text-sm font-semibold">
-        {pile.length}장 · {pileRank ? `${pileRank}번 ${role?.name ?? ""}` : "조커"}
+        {pile.length}장 · {pileRank ? `${pileRank}번 ${CARD_NAME[pileRank] ?? ""}` : "조커"}
       </div>
     </div>
   );
@@ -481,34 +451,36 @@ function GameTable({ gs, myId, onPlay, onPass }) {
   // 로그 감지: 효과음 + 카드 날아가는 애니메이션
   useEffect(() => {
     if (!log || !log.length) return;
-    if (log.length <= prevLogLen.current) return;
+    const newLogs = log.slice(prevLogLen.current);
+    if (!newLogs.length) return;
     prevLogLen.current = log.length;
-    const latest = log[log.length - 1];
-    if (!latest) return;
 
-    if (latest.includes("✨ 1번 카드")) {
-      const match = latest.match(/^(.+?)이\(가\)/);
-      const nickname = match?.[1] ?? "플레이어";
-      setDalmutEffect({ nickname });
-      setTimeout(() => setDalmutEffect(null), 3000);
-      playSound('dalmuti');
-    } else if (latest.includes("장을 냈습니다")) {
-      // 카드 날아가는 애니메이션
-      const countMatch = latest.match(/(\d+)장을 냈습니다/);
-      const count = parseInt(countMatch?.[1] ?? 1);
-      const isMyPlay = latest.startsWith(self?.nickname ?? '');
-      setFlyAnim({ fromBottom: isMyPlay, count });
-      setTimeout(() => setFlyAnim(null), 600);
-      playSound('card');
-    } else if (latest.includes("패스했습니다")) {
-      playSound('pass');
-    } else if (latest.includes("라운드 종료")) {
-      playSound('round_end');
-    } else if (latest.includes("혁명을 선언")) {
-      playSound('revolution');
-    } else if (latest.includes("세금 완료")) {
-      playSound('tax');
-    }
+    // 새 로그들을 모두 체크
+    newLogs.forEach(latest => {
+      if (!latest) return;
+      if (latest.includes("✨ 1번 카드")) {
+        const match = latest.match(/^(.+?)이\(가\)/);
+        const nickname = match?.[1] ?? "플레이어";
+        setDalmutEffect({ nickname });
+        setTimeout(() => setDalmutEffect(null), 3000);
+        playSound('dalmuti');
+      } else if (latest.includes("장을 냈습니다")) {
+        const countMatch = latest.match(/(\d+)장을 냈습니다/);
+        const count = parseInt(countMatch?.[1] ?? 1);
+        const isMyPlay = self?.nickname && latest.startsWith(self.nickname);
+        setFlyAnim({ fromBottom: !!isMyPlay, count });
+        setTimeout(() => setFlyAnim(null), 700);
+        if (!latest.includes("1번 카드")) playSound('card');
+      } else if (latest.includes("패스했습니다")) {
+        playSound('pass');
+      } else if (latest.includes("라운드 종료")) {
+        playSound('round_end');
+      } else if (latest.includes("혁명을 선언")) {
+        playSound('revolution');
+      } else if (latest.includes("세금 완료")) {
+        playSound('tax');
+      }
+    });
   }, [log?.length]);
 
   // 배경음 루프
@@ -734,29 +706,34 @@ function GameTable({ gs, myId, onPlay, onPass }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-green-900 to-teal-950 flex flex-col">
       <style>{`
-        @keyframes flyToCenter {
-          0% { transform: translateY(0) scale(1); opacity: 1; }
-          50% { transform: translateY(-120px) scale(0.8); opacity: 0.8; }
-          100% { transform: translateY(-200px) scale(0.3); opacity: 0; }
+        @keyframes flyUp {
+          0%   { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+          60%  { transform: translateY(-45vh) scale(0.6) rotate(-5deg); opacity: 0.9; }
+          100% { transform: translateY(-50vh) scale(0.2) rotate(-10deg); opacity: 0; }
         }
-        @keyframes flyFromTop {
-          0% { transform: translateY(-200px) scale(0.3); opacity: 0; }
-          50% { transform: translateY(-80px) scale(0.8); opacity: 0.8; }
-          100% { transform: translateY(0) scale(1); opacity: 1; }
+        @keyframes flyDown {
+          0%   { transform: translateY(0) scale(0.2) rotate(10deg); opacity: 0; }
+          40%  { transform: translateY(25vh) scale(0.6) rotate(5deg); opacity: 0.9; }
+          100% { transform: translateY(35vh) scale(1) rotate(0deg); opacity: 1; }
         }
-        .fly-card { animation: flyToCenter 0.5s ease-in forwards; }
-        .fly-card-in { animation: flyFromTop 0.5s ease-out forwards; }
+        .fly-up   { animation: flyUp   0.6s cubic-bezier(0.4,0,0.2,1) forwards; }
+        .fly-down { animation: flyDown 0.6s cubic-bezier(0.4,0,0.2,1) forwards; }
       `}</style>
 
-      {/* 카드 날아가는 애니메이션 오버레이 */}
+      {/* 카드 날아가는 애니메이션 */}
       {flyAnim && (
-        <div className="fixed inset-0 z-40 pointer-events-none flex items-center justify-center">
-          <div className={`flex gap-1 ${flyAnim.fromBottom ? 'fly-card' : 'fly-card-in'}`}>
-            {Array.from({ length: Math.min(flyAnim.count, 5) }).map((_, i) => (
-              <div key={i} className="w-10 h-14 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-600 border-2 border-white/50 shadow-2xl"
-                style={{ animationDelay: `${i * 0.05}s` }} />
-            ))}
-          </div>
+        <div className={`fixed z-40 pointer-events-none flex gap-1 ${
+          flyAnim.fromBottom
+            ? 'bottom-32 left-1/2 -translate-x-1/2 fly-up'
+            : 'top-24 left-1/2 -translate-x-1/2 fly-down'
+        }`}>
+          {Array.from({ length: Math.min(flyAnim.count, 5) }).map((_, i) => (
+            <div key={i} className="w-10 h-14 rounded-lg shadow-2xl border border-white/30"
+              style={{
+                background: `linear-gradient(135deg, #10b981, #0d9488)`,
+                transform: `rotate(${(i - flyAnim.count/2) * 8}deg)`,
+              }} />
+          ))}
         </div>
       )}
 
@@ -1047,9 +1024,11 @@ function MainScreen({ onCreateRoom, onJoinRoom, loading, isDevMode, onTestMode }
   const [devUnlocked, setDevUnlocked] = useState(false);
   const bgTimerRef = useRef(null);
   const audioRef = useRef(null);
+  const bgStarted = useRef(false);
 
-  // 메인화면 배경음
-  useEffect(() => {
+  function startBgMusic() {
+    if (bgStarted.current) return;
+    bgStarted.current = true;
     function getCtx() {
       if (!audioRef.current) audioRef.current = new (window.AudioContext || window.webkitAudioContext)();
       return audioRef.current;
@@ -1058,9 +1037,9 @@ function MainScreen({ onCreateRoom, onJoinRoom, loading, isDevMode, onTestMode }
       try {
         const ctx = getCtx();
         const now = ctx.currentTime;
-        const melody =  [523, 587, 659, 698, 784, 698, 659, 587, 523, 494, 523, 0];
+        const melody  = [523, 587, 659, 698, 784, 698, 659, 587, 523, 494, 523, 0];
         const harmony = [392, 440, 494, 523, 587, 523, 494, 440, 392, 370, 392, 0];
-        const bass =    [261, 293, 329, 349, 392, 349, 329, 293, 261, 246, 261, 0];
+        const bass    = [261, 293, 329, 349, 392, 349, 329, 293, 261, 246, 261, 0];
         melody.forEach((freq, i) => {
           if (freq > 0) {
             [[freq, 0.08, 'triangle'], [harmony[i], 0.05, 'sine'], [bass[i], 0.05, 'sawtooth']].forEach(([f, vol, type]) => {
@@ -1080,8 +1059,11 @@ function MainScreen({ onCreateRoom, onJoinRoom, loading, isDevMode, onTestMode }
       } catch(e) {}
       bgTimerRef.current = setTimeout(playBg, 2700);
     }
-    const t = setTimeout(playBg, 500);
-    return () => { clearTimeout(t); clearTimeout(bgTimerRef.current); };
+    playBg();
+  }
+
+  useEffect(() => {
+    return () => clearTimeout(bgTimerRef.current);
   }, []);
 
   function handleSecretTap() {
@@ -1096,7 +1078,7 @@ function MainScreen({ onCreateRoom, onJoinRoom, loading, isDevMode, onTestMode }
   const showDevButton = isDevMode || devUnlocked;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-emerald-950 to-slate-900 flex flex-col items-center justify-center p-6" onClick={startBgMusic}>
       {showRules && <RulesPopup onClose={() => setShowRules(false)} />}
       <div className="text-center mb-10">
         <div className="text-6xl mb-3 animate-bounce">👑</div>
@@ -1111,7 +1093,7 @@ function MainScreen({ onCreateRoom, onJoinRoom, loading, isDevMode, onTestMode }
 
       <div className="w-full max-w-sm bg-white/5 border border-white/10 rounded-3xl p-8 shadow-2xl">
         <label className="block text-white/40 text-xs uppercase tracking-widest mb-2">닉네임</label>
-        <input value={nickname} onChange={e => { setNickname(e.target.value); setError(""); }}
+        <input value={nickname} onChange={e => { setNickname(e.target.value); setError(""); startBgMusic(); }}
           placeholder="예: 김달무티" maxLength={10}
           className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 text-sm mb-4 focus:outline-none focus:border-emerald-400 transition-colors" />
 
