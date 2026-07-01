@@ -401,6 +401,7 @@ function TaxScreen({ myId, myHand, ranks, tributeMap, onTributeDone, onReturnDon
 // ================================================================
 function GameTable({ gs, myId, onPlay, onPass }) {
   const [selected, setSelected] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
   const { players, pile, currentTurn, round, log, ranks } = gs;
   const myHand = gs.myHand || [];
   const isMyTurn = currentTurn === myId;
@@ -438,14 +439,39 @@ function GameTable({ gs, myId, onPlay, onPass }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-green-900 to-teal-950 flex flex-col">
+      {/* 히스토리 팝업 */}
+      {showHistory && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-white text-xl font-bold">📋 게임 히스토리</h2>
+              <button onClick={() => setShowHistory(false)} className="text-white/40 hover:text-white text-2xl">✕</button>
+            </div>
+            <div className="overflow-y-auto flex-1 space-y-1">
+              {(log || []).slice().reverse().map((l, i) => (
+                <div key={i} className={`text-sm px-3 py-2 rounded-xl ${
+                  l.includes("🎉") ? "bg-yellow-500/20 text-yellow-300" :
+                  l.includes("패스") ? "bg-white/5 text-white/40" :
+                  l.includes("✨") || l.includes("모두 패스") ? "bg-emerald-500/20 text-emerald-300" :
+                  l.includes("라운드") ? "bg-blue-500/20 text-blue-300" :
+                  "bg-white/5 text-white/70"
+                }`}>{l}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       {/* HUD */}
       <div className="flex items-center justify-between px-4 py-2 bg-black/40 backdrop-blur border-b border-white/5">
         <span className="text-white/60 text-sm">라운드 <span className="text-white font-bold">{round}</span></span>
         <span className="text-white font-black tracking-widest text-lg">달무티</span>
-        <span className={`text-xs font-bold px-3 py-1 rounded-full transition-all
-          ${isMyTurn ? "bg-yellow-400 text-yellow-900 animate-pulse" : "bg-white/10 text-white/50"}`}>
-          {isMyTurn ? "⚡ 내 차례!" : "대기 중"}
-        </span>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowHistory(true)} className="text-white/50 hover:text-white text-xs border border-white/20 px-2 py-1 rounded-lg transition-all">📋</button>
+          <span className={`text-xs font-bold px-3 py-1 rounded-full transition-all
+            ${isMyTurn ? "bg-yellow-400 text-yellow-900 animate-pulse" : "bg-white/10 text-white/50"}`}>
+            {isMyTurn ? "⚡ 내 차례!" : "대기 중"}
+          </span>
+        </div>
       </div>
 
       {/* 상대방 */}
@@ -964,7 +990,9 @@ function useFirebaseGame() {
         const allHands = { ...(allHandsSnap.val() || {}), [currentTurn]: newBotHand };
         const botNick = roomData.players?.[currentTurn]?.nickname;
         const newFinished = [...(game.finished ?? [])];
-        const newLog = [...(game.log ?? []), `${botNick}이(가) ${cardsToPlay.length}장을 냈습니다`];
+        const nonJokerBot = cardsToPlay.filter(c => !c.joker);
+        const botCardDesc = nonJokerBot.length > 0 ? `${nonJokerBot[0].rank}번 카드` : "조커";
+        const newLog = [...(game.log ?? []), `${botNick}이(가) ${botCardDesc} ${cardsToPlay.length}장을 냈습니다`];
 
         if (!newBotHand.length && !newFinished.includes(currentTurn)) {
           newFinished.push(currentTurn);
@@ -978,6 +1006,9 @@ function useFirebaseGame() {
           newLog.push("라운드 종료!");
         }
 
+        // 1번 카드면 즉시 바닥 초기화
+        const botPlayedRankOne = nonJokerBot.length > 0 && nonJokerBot[0].rank === 1;
+
         const idx = playerIds.indexOf(currentTurn);
         let nextId = playerIds[(idx + 1) % playerIds.length];
         let tries = 0;
@@ -990,19 +1021,27 @@ function useFirebaseGame() {
         const updates = {};
         updates[`rooms/${roomCode}/hands/${currentTurn}`] = newBotHand;
         updates[`rooms/${roomCode}/players/${currentTurn}/cardCount`] = newBotHand.length;
-        updates[`rooms/${roomCode}/game/pile`] = cardsToPlay;
-        updates[`rooms/${roomCode}/game/lastPlayerId`] = currentTurn;
-        updates[`rooms/${roomCode}/game/passCount`] = 0;
         updates[`rooms/${roomCode}/game/finished`] = newFinished;
-        updates[`rooms/${roomCode}/game/log`] = newLog.slice(-20);
+        updates[`rooms/${roomCode}/game/log`] = newLog.slice(-30);
 
         if (isOver) {
           const ranks = assignRanks(newFinished, playerIds.length);
           updates[`rooms/${roomCode}/game/ranks`] = ranks;
           updates[`rooms/${roomCode}/meta/status`] = "result";
           updates[`rooms/${roomCode}/game/readyForNext`] = [];
+          updates[`rooms/${roomCode}/game/pile`] = cardsToPlay;
+          updates[`rooms/${roomCode}/game/lastPlayerId`] = currentTurn;
           newFinished.forEach(id => { updates[`rooms/${roomCode}/players/${id}/rank`] = ranks[id]; });
+        } else if (botPlayedRankOne) {
+          newLog.push(`✨ 1번 카드! ${botNick}이(가) 새로 시작합니다`);
+          updates[`rooms/${roomCode}/game/pile`] = [];
+          updates[`rooms/${roomCode}/game/passCount`] = 0;
+          updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
+          updates[`rooms/${roomCode}/game/currentTurn`] = newBotHand.length > 0 ? currentTurn : nextId;
         } else {
+          updates[`rooms/${roomCode}/game/pile`] = cardsToPlay;
+          updates[`rooms/${roomCode}/game/lastPlayerId`] = currentTurn;
+          updates[`rooms/${roomCode}/game/passCount`] = 0;
           updates[`rooms/${roomCode}/game/currentTurn`] = nextId;
         }
         await update(ref(db), updates);
@@ -1114,26 +1153,23 @@ function useFirebaseGame() {
     const playerNick = roomData?.players?.[uid]?.nickname;
     const newHand = myHand.filter(c => !cards.find(s => s.id === c.id));
     const newFinished = [...(game?.finished ?? [])];
-    const newLog = [...(game?.log ?? []), `${playerNick}이(가) ${cards.length}장을 냈습니다`];
+
+    // 상세 로그
+    const nonJoker = cards.filter(c => !c.joker);
+    const cardRank = nonJoker[0]?.rank;
+    const cardDesc = cards.every(c => c.joker) ? "조커" : `${cardRank}번 카드`;
+    const newLog = [...(game?.log ?? []), `${playerNick}이(가) ${cardDesc} ${cards.length}장을 냈습니다`];
 
     if (newHand.length === 0 && !newFinished.includes(playerId)) {
       newFinished.push(playerId);
       newLog.push(`🎉 ${playerNick}이(가) 패를 다 냈습니다!`);
     }
 
-    // 다음 플레이어 계산
+    // 다음 플레이어 계산 (패가 없는 사람 건너뜀)
     const playerIds = Object.keys(roomData?.players ?? {});
-    const idx = playerIds.indexOf(playerId);
-    let nextId = playerIds[(idx + 1) % playerIds.length];
     const handSnap = await get(ref(db, `rooms/${roomCode}/hands`));
     const allHands = handSnap.val() || {};
     allHands[playerId] = newHand;
-    let tries = 0;
-    while ((allHands[nextId]?.length ?? 0) === 0 && tries < playerIds.length) {
-      const ni = playerIds.indexOf(nextId);
-      nextId = playerIds[(ni + 1) % playerIds.length];
-      tries++;
-    }
 
     // 라운드 종료 체크
     const remaining = playerIds.filter(id => (allHands[id]?.length ?? 0) > 0);
@@ -1146,21 +1182,52 @@ function useFirebaseGame() {
     const updates = {};
     updates[`rooms/${roomCode}/hands/${playerId}`] = newHand;
     updates[`rooms/${roomCode}/players/${playerId}/cardCount`] = newHand.length;
-    updates[`rooms/${roomCode}/game/pile`] = cards;
-    updates[`rooms/${roomCode}/game/lastPlayerId`] = playerId;
-    updates[`rooms/${roomCode}/game/passCount`] = 0;
     updates[`rooms/${roomCode}/game/finished`] = newFinished;
-    updates[`rooms/${roomCode}/game/log`] = newLog.slice(-20);
+    updates[`rooms/${roomCode}/game/log`] = newLog.slice(-30);
 
-    if (isRoundOver) {
+    // 1번 카드(달무티) 내면 즉시 바닥 초기화, 본인이 새 선
+    const isRankOne = cardRank === 1 || (cards.length > 0 && cards.every(c => c.joker));
+    const playedRankOne = nonJoker.length > 0 && nonJoker[0].rank === 1;
+
+    if (playedRankOne && !isRoundOver) {
+      newLog.push(`✨ 1번 카드! ${playerNick}이(가) 새로 시작합니다`);
+      updates[`rooms/${roomCode}/game/pile`] = [];
+      updates[`rooms/${roomCode}/game/passCount`] = 0;
+      updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
+      updates[`rooms/${roomCode}/game/log`] = newLog.slice(-30);
+      // 패가 있으면 본인이 선, 없으면 다음 사람
+      if (newHand.length > 0) {
+        updates[`rooms/${roomCode}/game/currentTurn`] = playerId;
+      } else {
+        let nextId = playerIds[(playerIds.indexOf(playerId) + 1) % playerIds.length];
+        let tries = 0;
+        while ((allHands[nextId]?.length ?? 0) === 0 && tries < playerIds.length) {
+          nextId = playerIds[(playerIds.indexOf(nextId) + 1) % playerIds.length];
+          tries++;
+        }
+        updates[`rooms/${roomCode}/game/currentTurn`] = nextId;
+      }
+    } else if (isRoundOver) {
       const ranks = assignRanks(newFinished, playerIds.length);
       updates[`rooms/${roomCode}/game/ranks`] = ranks;
       updates[`rooms/${roomCode}/meta/status`] = "result";
       updates[`rooms/${roomCode}/game/readyForNext`] = [];
+      updates[`rooms/${roomCode}/game/pile`] = cards;
+      updates[`rooms/${roomCode}/game/lastPlayerId`] = playerId;
       newFinished.forEach(id => {
         updates[`rooms/${roomCode}/players/${id}/rank`] = ranks[id];
       });
     } else {
+      updates[`rooms/${roomCode}/game/pile`] = cards;
+      updates[`rooms/${roomCode}/game/lastPlayerId`] = playerId;
+      updates[`rooms/${roomCode}/game/passCount`] = 0;
+      // 다음 플레이어 (패 없는 사람 건너뜀, lastPlayerId도 건너뜀)
+      let nextId = playerIds[(playerIds.indexOf(playerId) + 1) % playerIds.length];
+      let tries = 0;
+      while ((allHands[nextId]?.length ?? 0) === 0 && tries < playerIds.length) {
+        nextId = playerIds[(playerIds.indexOf(nextId) + 1) % playerIds.length];
+        tries++;
+      }
       updates[`rooms/${roomCode}/game/currentTurn`] = nextId;
     }
 
@@ -1190,7 +1257,11 @@ function useFirebaseGame() {
 
     const updates = {};
     if (newPassCount >= activePlayers.length - 1) {
-      const lastId = game?.lastPlayerId;
+      let lastId = game?.lastPlayerId;
+      // lastPlayerId가 패가 없으면 다음 활성 플레이어로
+      if (!lastId || (allHands[lastId]?.length ?? 0) === 0) {
+        lastId = activePlayers[0];
+      }
       newLog.push(`모두 패스! ${roomData?.players?.[lastId]?.nickname}이(가) 새로 시작합니다`);
       updates[`rooms/${roomCode}/game/pile`] = [];
       updates[`rooms/${roomCode}/game/passCount`] = 0;
@@ -1200,7 +1271,7 @@ function useFirebaseGame() {
       updates[`rooms/${roomCode}/game/passCount`] = newPassCount;
       updates[`rooms/${roomCode}/game/currentTurn`] = nextId;
     }
-    updates[`rooms/${roomCode}/game/log`] = newLog.slice(-20);
+    updates[`rooms/${roomCode}/game/log`] = newLog.slice(-30);
     await update(ref(db), updates);
   }
 
