@@ -504,11 +504,15 @@ function GameTable({ gs, myId, onPlay, onPass }) {
         playSound('dalmuti');
       }
 
-      if (latest.includes("🔄 아무도 낼 수 없어요")) {
-        const match = latest.match(/🔄 아무도 낼 수 없어요! (.+?)이\(가\)/);
+      if (latest.includes("🔄") && latest.includes("아무도 대응 못함")) {
+        const match = latest.match(/→ (.+?)이\(가\) 새로 시작/);
         const winner = match?.[1] ?? "플레이어";
-        setAutoClearEffect(prev => prev ? prev : { winner });
-        setTimeout(() => setAutoClearEffect(null), 2500);
+        // 강제 새 객체로 리렌더링 보장
+        setAutoClearEffect(null);
+        setTimeout(() => {
+          setAutoClearEffect({ winner, ts: Date.now() });
+          setTimeout(() => setAutoClearEffect(null), 2800);
+        }, 50);
       }
 
       if (latest.includes("장을 냈습니다")) {
@@ -824,11 +828,11 @@ function GameTable({ gs, myId, onPlay, onPass }) {
         <div className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none">
           <div className="text-center pop-in">
             <div className="text-5xl mb-2">🔄</div>
-            <div className="bg-blue-500/95 text-white font-black text-lg px-6 py-3 rounded-2xl shadow-2xl border border-blue-300/30">
-              아무도 못 냅니다!
+            <div className="bg-blue-500/95 text-white font-black text-base px-6 py-3 rounded-2xl shadow-2xl border border-blue-300/30">
+              아무도 대응하지 못했습니다!
             </div>
-            <div className="text-white font-bold text-base mt-2 drop-shadow-lg bg-black/40 px-4 py-1 rounded-xl">
-              {autoClearEffect.winner}이(가) 새로 시작 ▶
+            <div className="text-white font-bold text-sm mt-2 drop-shadow-lg bg-black/50 px-4 py-1.5 rounded-xl">
+              ▶ {autoClearEffect.winner}이(가) 새로 시작
             </div>
           </div>
         </div>
@@ -1736,17 +1740,24 @@ function useFirebaseGame() {
             canPlayerPlay(allHands[id] || [])
           );
 
+          // 낸 봇 포함 전체 남은 활성 플레이어
+          const allRemaining = playerIds.filter(id => (allHands[id]?.length ?? 0) > 0);
+
           if (!canAnyone && remainingActive.length > 0 && botCardRank) {
-            newLog.push(`🔄 아무도 낼 수 없어요! ${botNick}이(가) 새로 시작합니다`);
+            // 새 선: 활성 플레이어 중 nextId 방향 첫 번째
+            const newLeader = allRemaining.find(id => id !== currentTurn) ?? allRemaining[0] ?? nextId;
+            const leaderNick = roomData.players?.[newLeader]?.nickname ?? "다음 플레이어";
+            newLog.push(`🔄 ${botNick}이(가) 낸 ${botCardDesc}에 아무도 대응 못함! → ${leaderNick}이(가) 새로 시작`);
             updates[`rooms/${roomCode}/game/pile`] = [];
             updates[`rooms/${roomCode}/game/passCount`] = 0;
             updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
-            updates[`rooms/${roomCode}/game/currentTurn`] = newBotHand.length > 0 ? currentTurn : nextId;
+            updates[`rooms/${roomCode}/game/currentTurn`] = newLeader;
           } else {
             updates[`rooms/${roomCode}/game/pile`] = cardsToPlay;
             updates[`rooms/${roomCode}/game/lastPlayerId`] = currentTurn;
             updates[`rooms/${roomCode}/game/passCount`] = 0;
-            updates[`rooms/${roomCode}/game/currentTurn`] = nextId;
+            // nextId가 패 없으면 다음 활성 플레이어
+            updates[`rooms/${roomCode}/game/currentTurn`] = (allHands[nextId]?.length ?? 0) > 0 ? nextId : (allRemaining.find(id => id !== currentTurn) ?? nextId);
           }
         }
         // 로그는 모든 newLog.push 완료 후 마지막에 저장
@@ -1948,11 +1959,14 @@ function useFirebaseGame() {
       );
 
       if (!canAnyone && remaining.filter(id => id !== playerId).length > 0) {
-        newLog.push(`🔄 아무도 낼 수 없어요! ${playerNick}이(가) 새로 시작합니다`);
+        const allRemaining = remaining.filter(id => id !== playerId);
+        const newLeader = allRemaining[0] ?? nextId;
+        const leaderNick = roomData?.players?.[newLeader]?.nickname ?? "다음 플레이어";
+        newLog.push(`🔄 ${playerNick}이(가) 낸 ${cardDesc}에 아무도 대응 못함! → ${leaderNick}이(가) 새로 시작`);
         updates[`rooms/${roomCode}/game/pile`] = [];
         updates[`rooms/${roomCode}/game/passCount`] = 0;
         updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
-        updates[`rooms/${roomCode}/game/currentTurn`] = newHand.length > 0 ? playerId : nextId;
+        updates[`rooms/${roomCode}/game/currentTurn`] = newHand.length > 0 ? playerId : newLeader;
       } else {
         updates[`rooms/${roomCode}/game/currentTurn`] = nextId;
       }
