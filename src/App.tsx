@@ -911,13 +911,15 @@ function useFirebaseGame() {
         const nonJokerHand = hand.filter(c => !c.joker);
         const jokers = hand.filter(c => c.joker);
 
+        // 숫자별 그룹화
+        const groups = {};
+        nonJokerHand.forEach(c => {
+          if (!groups[c.rank]) groups[c.rank] = [];
+          groups[c.rank].push(c);
+        });
+
         if (!pile.length) {
           // 바닥이 비어있으면 숫자 카드 중 가장 약한(높은 숫자) 그룹 선택
-          const groups = {};
-          nonJokerHand.forEach(c => {
-            if (!groups[c.rank]) groups[c.rank] = [];
-            groups[c.rank].push(c);
-          });
           const sorted = Object.entries(groups).sort((a, b) => parseInt(b[0]) - parseInt(a[0]));
           return sorted[0]?.[1] || null;
         }
@@ -925,16 +927,8 @@ function useFirebaseGame() {
         const pileCount = pile.length;
         const pileNonJoker = pile.filter(c => !c.joker);
         const pileRank = pileNonJoker[0]?.rank;
-        if (!pileRank) return null; // 바닥 rank 불명확하면 패스
+        if (!pileRank) return null;
 
-        // 바닥과 같은 장수이면서 더 낮은 숫자 찾기
-        const groups = {};
-        nonJokerHand.forEach(c => {
-          if (!groups[c.rank]) groups[c.rank] = [];
-          groups[c.rank].push(c);
-        });
-
-        const jokers = hand.filter(c => c.joker);
         const candidates = [];
 
         // 순수 카드로 낼 수 있는지
