@@ -1556,14 +1556,13 @@ function useFirebaseGame() {
 
     const delay = 1000 + Math.random() * 800;
     const timer = setTimeout(async () => {
-      try {
-        // Firebase에서 최신 currentTurn 확인 (딜레이 중 변경됐을 수 있음)
-        const freshSnap = await get(ref(db, `rooms/${roomCode}/game/currentTurn`));
-        if (freshSnap.val() !== currentTurn) {
-          botLock.current = false;
-          return; // 이미 턴이 바뀜
-        }
-        // 봇 손패 가져오기
+      // Firebase에서 최신 currentTurn 확인 (딜레이 중 변경됐을 수 있음)
+      const freshSnap = await get(ref(db, `rooms/${roomCode}/game/currentTurn`));
+      if (freshSnap.val() !== currentTurn) {
+        botLock.current = false;
+        return;
+      }
+      // 봇 손패 가져오기
       const handSnap = await get(ref(db, `rooms/${roomCode}/hands/${currentTurn}`));
       const botHand = handSnap.val() || [];
       if (!botHand.length) {
@@ -1805,7 +1804,6 @@ function useFirebaseGame() {
         // 로그는 모든 newLog.push 완료 후 마지막에 저장
         updates[`rooms/${roomCode}/game/log`] = newLog.slice(-30);
         await update(ref(db), updates);
-      } finally {
         botLock.current = false;
       }
     }, delay);
