@@ -2310,10 +2310,10 @@ function useFirebaseGame() {
   } : null;
 
   return {
-    uid, screen, loading, roomCode, gs, players,
+    uid, screen, loading, roomCode, roomData, gs, players,
     taxPhase, tributeReceived,
     createRoom, joinRoom, startGame, playCards, pass,
-    tributeCards, returnCards, readyForNext, startTestGame,
+    tributeCards, returnCards, readyForNext, startTestGame, drawCard,
   };
 }
 
@@ -2400,10 +2400,10 @@ function DrawingScreen({ players, selfId, drawnCards, onDraw }) {
 
 export default function App() {
   const {
-    uid, screen, loading, roomCode, gs, players,
+    uid, screen, loading, roomCode, roomData, gs, players,
     taxPhase, tributeReceived,
     createRoom, joinRoom, startGame, playCards, pass,
-    tributeCards, returnCards, readyForNext, startTestGame,
+    tributeCards, returnCards, readyForNext, startTestGame, drawCard,
   } = useFirebaseGame();
 
   const [copied, setCopied] = useState(false);
