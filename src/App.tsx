@@ -2390,7 +2390,7 @@ function DrawingScreen({ players, selfId, drawnCards, onDraw }) {
       `}</style>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🎴</div>
+          <div className="text-5xl mb-3">👑</div>
           <h2 className="text-white text-2xl font-black">계급 결정</h2>
           <p className="text-white/50 text-sm mt-2">카드를 한 장씩 뽑아 계급을 정합니다</p>
           <p className="text-white/30 text-xs mt-1">낮은 숫자 = 높은 계급 (조커 = 13번)</p>
@@ -2400,7 +2400,12 @@ function DrawingScreen({ players, selfId, drawnCards, onDraw }) {
           <div className="flex flex-col items-center gap-4 mb-6">
             <button onClick={onDraw}
               className="w-32 h-44 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-800 border-2 border-emerald-400/50 shadow-2xl flex flex-col items-center justify-center gap-2 active:scale-95 transition-all hover:scale-105">
-              <span className="text-5xl">🎴</span>
+              <svg width="48" height="64" viewBox="0 0 48 64" fill="none">
+                <rect width="48" height="64" rx="6" fill="#1a4a2e"/>
+                <rect x="3" y="3" width="42" height="58" rx="4" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
+                <text x="24" y="36" textAnchor="middle" fontSize="22" fill="rgba(255,255,255,0.6)">👑</text>
+                <rect x="6" y="6" width="36" height="52" rx="3" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="4 3"/>
+              </svg>
               <span className="text-white font-bold text-sm">카드 뽑기</span>
             </button>
             <p className="text-white/40 text-xs">탭해서 카드를 뽑으세요!</p>
