@@ -1550,8 +1550,8 @@ function useFirebaseGame() {
     const botIds = game.botIds;
     if (!botIds.includes(currentTurn)) return;
 
-    // 같은 턴을 중복 처리하지 않음 (턴키 = currentTurn + passCount + pileLength)
-    const turnKey = `${currentTurn}-${game.passCount ?? 0}-${(game.pile ?? []).length}`;
+    // 같은 턴+상황을 중복 처리하지 않음
+    const turnKey = `${currentTurn}-${game.passCount ?? 0}-${(game.pile ?? []).length}-${(game.log ?? []).length}`;
     if (botLock.current === turnKey) return;
     botLock.current = turnKey;
 
@@ -1811,7 +1811,7 @@ function useFirebaseGame() {
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [roomData?.game?.currentTurn, roomData?.game?.passCount, roomCode]);
+  }, [roomData?.game?.currentTurn, roomData?.game?.passCount, roomData?.game?.pile?.length, roomData?.game?.log?.length, roomCode]);
 
   // ── 테스트 모드: 봇 4명과 함께 방 만들기 ──────────────────
   async function startTestGame(nickname) {
