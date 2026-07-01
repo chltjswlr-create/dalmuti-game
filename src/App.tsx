@@ -499,10 +499,8 @@ function GameTable({ gs, myId, onPlay, onPass }) {
       if (latest.includes("✨ 1번 카드")) {
         const match = latest.match(/✨ 1번 카드! (.+?)이\(가\)/);
         const nickname = match?.[1] ?? "플레이어";
-        setTimeout(() => {
-          setDalmutEffect({ nickname });
-          setTimeout(() => setDalmutEffect(null), 3000);
-        }, 400);
+        setDalmutEffect({ nickname });
+        setTimeout(() => setDalmutEffect(null), 3000);
         playSound('dalmuti');
       }
 
@@ -897,28 +895,62 @@ function GameTable({ gs, myId, onPlay, onPass }) {
         </div>
       </div>
 
-      {/* 상대방 */}
-      <div className="flex flex-wrap gap-2 justify-center px-3 pt-3 pb-1">
-        {others.map(p => (
-          <PlayerToken key={p.id} player={p} isCurrentTurn={currentTurn === p.id} />
-        ))}
-      </div>
+      {/* 메인 게임 영역 - 사이드바 + 중앙 */}
+      <div className="flex flex-1 overflow-hidden">
 
-      {/* 중앙 바닥 */}
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 px-4">
-        <div className="bg-black/25 backdrop-blur rounded-3xl px-6 py-5 flex flex-col items-center gap-3 shadow-xl border border-white/5 w-full max-w-sm">
-          <p className="text-white/30 text-[10px] uppercase tracking-widest">바닥 카드</p>
-          <Pile pile={pile} />
-          {gs.lastPlayerNick && pile?.length > 0 && (
-            <p className="text-white/30 text-xs">마지막: {gs.lastPlayerNick}</p>
-          )}
+        {/* 오른쪽: 플레이어 세로 목록 (계급순) */}
+        <div className="w-24 flex flex-col gap-1.5 px-1.5 py-2 bg-black/20 border-r border-white/5 overflow-y-auto">
+          {/* 나 */}
+          <div className={`flex flex-col items-center gap-0.5 px-1 py-2 rounded-xl transition-all
+            ${isMyTurn ? 'bg-yellow-400/20 ring-1 ring-yellow-400 turn-glow' : 'bg-white/5'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base font-bold text-white
+              ${self?.rank ? `bg-gradient-to-br ${RANK_COLOR[self.rank]}` : 'bg-emerald-600'}`}>
+              {self?.rank ? ({"dalmuti":"👑","prime":"🤵","peasant":"👨","slave":"🔗","great_slave":"⛓️"}[self.rank] ?? "나") : "나"}
+            </div>
+            <span className="text-white text-[10px] font-bold truncate w-full text-center">{self?.nickname ?? "나"}</span>
+            <span className="text-white/40 text-[9px]">🃏 {myHand.length}</span>
+            {self?.rank && <span className="text-[8px] text-yellow-300 text-center leading-tight">{RANK_LABEL[self.rank]?.replace(/^[^ ]+ /,'')}</span>}
+            {isMyTurn && <span className="text-[9px] text-yellow-400 animate-pulse font-bold">▶ 내차례</span>}
+          </div>
+          {/* 구분선 */}
+          <div className="border-t border-white/10 mx-1"/>
+          {/* 다른 플레이어들 - 계급순 정렬 */}
+          {[...others].sort((a, b) => {
+            const order = { dalmuti:0, prime:1, peasant:2, slave:3, great_slave:4, null:5, undefined:5 };
+            return (order[a.rank] ?? 5) - (order[b.rank] ?? 5);
+          }).map(p => (
+            <div key={p.id} className={`flex flex-col items-center gap-0.5 px-1 py-2 rounded-xl transition-all
+              ${currentTurn === p.id ? 'bg-yellow-400/20 ring-1 ring-yellow-400 turn-glow' : 'bg-white/5'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base font-bold text-white
+                ${p.rank ? `bg-gradient-to-br ${RANK_COLOR[p.rank]}` : 'bg-slate-600'}`}>
+                {p.rank ? ({"dalmuti":"👑","prime":"🤵","peasant":"👨","slave":"🔗","great_slave":"⛓️"}[p.rank] ?? p.nickname[0]) : p.nickname[0]}
+              </div>
+              <span className="text-white text-[10px] font-medium truncate w-full text-center">{p.nickname}</span>
+              <span className="text-white/40 text-[9px]">🃏 {p.cardCount}</span>
+              {p.rank && <span className="text-[8px] text-yellow-300 text-center leading-tight">{RANK_LABEL[p.rank]?.replace(/^[^ ]+ /,'')}</span>}
+              {currentTurn === p.id && <span className="text-[9px] text-yellow-400 animate-pulse font-bold">▶ 차례</span>}
+            </div>
+          ))}
         </div>
 
-        {/* 로그 */}
-        <div className="w-full max-w-sm bg-black/20 rounded-2xl px-4 py-2 max-h-16 overflow-y-auto">
-          {(log || []).slice(-5).reverse().map((l, i) => (
-            <p key={i} className={`text-xs truncate ${i === 0 ? "text-white/60" : "text-white/25"}`}>{l}</p>
-          ))}
+        {/* 중앙: 바닥 + 로그 */}
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 px-3 py-2">
+          <div className="bg-black/25 backdrop-blur rounded-2xl px-4 py-3 flex flex-col items-center gap-2 shadow-xl border border-white/5 w-full">
+            <p className="text-white/30 text-[9px] uppercase tracking-widest">바닥 카드</p>
+            <Pile pile={pile} />
+            {gs.lastPlayerNick && pile?.length > 0 && (
+              <p className="text-white/30 text-[10px]">마지막: {gs.lastPlayerNick}</p>
+            )}
+          </div>
+
+          {/* 로그 */}
+          <div className="w-full bg-black/20 rounded-xl px-3 py-2 max-h-20 overflow-y-auto">
+            {(log || []).slice(-6).reverse().map((l, i) => (
+              <p key={i} className={`text-[10px] truncate leading-relaxed
+                ${i === 0 ? "text-white/70 font-medium" :
+                  i === 1 ? "text-white/45" : "text-white/20"}`}>{l}</p>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -1503,7 +1535,25 @@ function useFirebaseGame() {
       // 봇 손패 가져오기
       const handSnap = await get(ref(db, `rooms/${roomCode}/hands/${currentTurn}`));
       const botHand = handSnap.val() || [];
-      if (!botHand.length) return;
+      if (!botHand.length) {
+        // 패가 없는 봇이 currentTurn이 됐다면 다음 활성 플레이어로 넘기기
+        const allHandsSnap = await get(ref(db, `rooms/${roomCode}/hands`));
+        const allHands = allHandsSnap.val() || {};
+        const activePlayers = playerIds.filter(id => (allHands[id]?.length ?? 0) > 0);
+        if (activePlayers.length > 0) {
+          const idx = playerIds.indexOf(currentTurn);
+          let nextId = playerIds[(idx + 1) % playerIds.length];
+          let tries = 0;
+          while ((allHands[nextId]?.length ?? 0) === 0 && tries < playerIds.length) {
+            nextId = playerIds[(playerIds.indexOf(nextId) + 1) % playerIds.length];
+            tries++;
+          }
+          if ((allHands[nextId]?.length ?? 0) > 0) {
+            await update(ref(db), { [`rooms/${roomCode}/game/currentTurn`]: nextId });
+          }
+        }
+        return;
+      }
 
       const pile = game.pile ?? [];
       const playerIds = Object.keys(roomData.players ?? {});
@@ -1706,7 +1756,7 @@ function useFirebaseGame() {
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [roomData?.game?.currentTurn, roomData?.game?.passCount, roomData?.game?.pile?.length, roomCode]);
+  }, [roomData?.game?.currentTurn, roomData?.game?.passCount, roomData?.game?.pile?.length, roomData?.game?.log?.length, roomCode]);
 
   // ── 테스트 모드: 봇 4명과 함께 방 만들기 ──────────────────
   async function startTestGame(nickname) {
