@@ -760,11 +760,11 @@ function GameTable({ gs, myId, onPlay, onPass }) {
           70%  { transform: translateY(-32vh) scale(0.5) rotate(-6deg); opacity: 0.6; }
           100% { transform: translateY(-40vh) scale(0.15) rotate(-10deg); opacity: 0; }
         }
-        @keyframes flyDown {
-          0%   { transform: translateY(-8vh) scale(0.2) rotate(8deg); opacity: 0; }
-          30%  { transform: translateY(-2vh) scale(0.6) rotate(4deg); opacity: 0.8; }
-          70%  { transform: translateY(10vh) scale(0.9) rotate(1deg); opacity: 1; }
-          100% { transform: translateY(16vh) scale(1) rotate(0deg); opacity: 0; filter: brightness(1.3); }
+        @keyframes flyRight {
+          0%   { transform: translateX(-60px) scale(0.4) rotate(-8deg); opacity: 0; }
+          40%  { transform: translateX(20px) scale(0.8) rotate(-2deg); opacity: 0.9; }
+          70%  { transform: translateX(60px) scale(1) rotate(1deg); opacity: 1; }
+          100% { transform: translateX(100px) scale(0.8) rotate(3deg); opacity: 0; }
         }
         @keyframes pileAppear {
           0%   { transform: scale(0.5) rotate(-8deg); opacity: 0; }
@@ -785,7 +785,7 @@ function GameTable({ gs, myId, onPlay, onPass }) {
           100% { transform: scale(1); opacity: 1; }
         }
         .fly-up    { animation: flyUp   0.5s cubic-bezier(0.4,0,1,1) forwards; }
-        .fly-down  { animation: flyDown 0.5s cubic-bezier(0,0,0.6,1) forwards; }
+        .fly-right { animation: flyRight 0.55s cubic-bezier(0,0,0.6,1) forwards; }
         .pile-appear { animation: pileAppear 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards; }
         .turn-glow { animation: turnGlow 1.5s ease-in-out infinite; }
         .slide-in  { animation: slideInUp 0.3s ease-out forwards; }
@@ -807,7 +807,7 @@ function GameTable({ gs, myId, onPlay, onPass }) {
         <div className={`fixed z-40 pointer-events-none flex gap-1.5 ${
           flyAnim.fromBottom
             ? 'bottom-36 left-1/2 -translate-x-1/2 fly-up'
-            : 'top-28 left-1/2 -translate-x-1/2 fly-down'
+            : 'left-28 top-1/2 -translate-y-1/2 fly-right'
         }`}>
           {Array.from({ length: Math.min(flyAnim.count, 5) }).map((_, i) => (
             <div key={i} className="w-10 h-14 rounded-lg shadow-2xl"
@@ -902,39 +902,61 @@ function GameTable({ gs, myId, onPlay, onPass }) {
       {/* 메인 게임 영역 - 사이드바 + 중앙 */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* 오른쪽: 플레이어 세로 목록 (계급순) */}
-        <div className="w-24 flex flex-col gap-1.5 px-1.5 py-2 bg-black/20 border-r border-white/5 overflow-y-auto">
-          {/* 나 */}
-          <div className={`flex flex-col items-center gap-0.5 px-1 py-2 rounded-xl transition-all
-            ${isMyTurn ? 'bg-yellow-400/20 ring-1 ring-yellow-400 turn-glow' : 'bg-white/5'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base font-bold text-white
-              ${self?.rank ? `bg-gradient-to-br ${RANK_COLOR[self.rank]}` : 'bg-emerald-600'}`}>
-              {self?.rank ? ({"dalmuti":"👑","prime":"🤵","peasant":"👨","slave":"🔗","great_slave":"⛓️"}[self.rank] ?? "나") : "나"}
-            </div>
-            <span className="text-white text-[10px] font-bold truncate w-full text-center">{self?.nickname ?? "나"}</span>
-            <span className="text-white/40 text-[9px]">🃏 {myHand.length}</span>
-            {self?.rank && <span className="text-[8px] text-yellow-300 text-center leading-tight">{RANK_LABEL[self.rank]?.replace(/^[^ ]+ /,'')}</span>}
-            {isMyTurn && <span className="text-[9px] text-yellow-400 animate-pulse font-bold">▶ 내차례</span>}
-          </div>
-          {/* 구분선 */}
-          <div className="border-t border-white/10 mx-1"/>
-          {/* 다른 플레이어들 - 계급순 정렬 */}
-          {[...others].sort((a, b) => {
-            const order = { dalmuti:0, prime:1, peasant:2, slave:3, great_slave:4, null:5, undefined:5 };
-            return (order[a.rank] ?? 5) - (order[b.rank] ?? 5);
-          }).map(p => (
-            <div key={p.id} className={`flex flex-col items-center gap-0.5 px-1 py-2 rounded-xl transition-all
-              ${currentTurn === p.id ? 'bg-yellow-400/20 ring-1 ring-yellow-400 turn-glow' : 'bg-white/5'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base font-bold text-white
-                ${p.rank ? `bg-gradient-to-br ${RANK_COLOR[p.rank]}` : 'bg-slate-600'}`}>
-                {p.rank ? ({"dalmuti":"👑","prime":"🤵","peasant":"👨","slave":"🔗","great_slave":"⛓️"}[p.rank] ?? p.nickname[0]) : p.nickname[0]}
-              </div>
-              <span className="text-white text-[10px] font-medium truncate w-full text-center">{p.nickname}</span>
-              <span className="text-white/40 text-[9px]">🃏 {p.cardCount}</span>
-              {p.rank && <span className="text-[8px] text-yellow-300 text-center leading-tight">{RANK_LABEL[p.rank]?.replace(/^[^ ]+ /,'')}</span>}
-              {currentTurn === p.id && <span className="text-[9px] text-yellow-400 animate-pulse font-bold">▶ 차례</span>}
-            </div>
-          ))}
+        {/* 왼쪽: 플레이어 목록 - 계급별 그룹, 같은 계급은 가로 */}
+        <div className="w-28 flex flex-col gap-1 px-1.5 py-2 bg-black/20 border-r border-white/5 overflow-y-auto">
+          {(() => {
+            const RANK_ORDER = ['dalmuti','prime','peasant','slave','great_slave', null];
+            const RANK_EMOJI_MAP = {"dalmuti":"👑","prime":"🤵","peasant":"👨","slave":"🔗","great_slave":"⛓️"};
+            const allPlayers = [
+              { ...self, id: 'me', isSelf: true, cardCount: myHand.length },
+              ...others
+            ].filter(Boolean);
+
+            // 계급별 그룹화
+            const groups = {};
+            allPlayers.forEach(p => {
+              const key = p.rank ?? 'none';
+              if (!groups[key]) groups[key] = [];
+              groups[key].push(p);
+            });
+
+            // 계급 순서대로 렌더링
+            const orderedKeys = [...RANK_ORDER.map(r => r ?? 'none'), 'none'].filter((v,i,a) => a.indexOf(v) === i);
+
+            return orderedKeys.filter(k => groups[k]?.length).map(key => {
+              const rankPlayers = groups[key];
+              const rankLabel = key !== 'none' ? RANK_LABEL[key] : null;
+              const rankEmoji = RANK_EMOJI_MAP[key] ?? '👤';
+
+              return (
+                <div key={key} className="mb-1">
+                  {rankLabel && (
+                    <div className="text-[8px] text-white/30 px-1 mb-0.5 uppercase tracking-widest">{rankEmoji} {rankLabel.replace(/^[^ ]+ /,'')}</div>
+                  )}
+                  <div className="flex flex-wrap gap-1">
+                    {rankPlayers.map(p => {
+                      const isActive = p.isSelf ? isMyTurn : currentTurn === p.id;
+                      return (
+                        <div key={p.id ?? 'me'} className={`flex flex-col items-center px-1.5 py-1.5 rounded-lg transition-all flex-1 min-w-[44px]
+                          ${isActive ? 'bg-yellow-400/20 ring-1 ring-yellow-400 turn-glow' : 'bg-white/5'}`}>
+                          <span className="text-lg leading-none">
+                            {key !== 'none' ? rankEmoji : (p.isSelf ? '🙋' : '👤')}
+                          </span>
+                          <span className="text-white text-[9px] font-bold truncate w-full text-center mt-0.5">
+                            {p.isSelf ? (p.nickname ?? '나') : p.nickname}
+                          </span>
+                          <span className="text-white/40 text-[8px]">🃏{p.cardCount ?? p.myHand?.length ?? 0}</span>
+                          {isActive && (
+                            <span className="text-[8px] text-yellow-400 animate-pulse font-bold">▶</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
 
         {/* 중앙: 바닥 + 로그 */}
@@ -948,7 +970,7 @@ function GameTable({ gs, myId, onPlay, onPass }) {
           </div>
 
           {/* 로그 */}
-          <div className="w-full bg-black/20 rounded-xl px-3 py-2 max-h-20 overflow-y-auto">
+          <div className="w-full bg-black/20 rounded-xl px-3 py-2 max-h-24 overflow-y-auto">
             {(log || []).slice(-6).reverse().map((l, i) => (
               <p key={i} className={`text-[10px] truncate leading-relaxed
                 ${i === 0 ? "text-white/70 font-medium" :
