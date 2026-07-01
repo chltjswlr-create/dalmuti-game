@@ -1010,7 +1010,7 @@ function useFirebaseGame() {
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [roomData?.game?.currentTurn, roomCode]);
+  }, [roomData?.game?.currentTurn, roomData?.game?.passCount, roomData?.game?.pile?.length, roomCode]);
 
   // ── 테스트 모드: 봇 4명과 함께 방 만들기 ──────────────────
   async function startTestGame(nickname) {
