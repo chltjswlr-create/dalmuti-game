@@ -830,6 +830,183 @@ function useFirebaseGame() {
   // ── 개발 모드 체크 (?dev=true) ────────────────────────────
   // (App 컴포넌트 최상단에서 처리하므로 여기선 제거)
 
+  // ── 봇 AI: 봇 차례일 때 자동 플레이 ──────────────────────
+  useEffect(() => {
+    if (!roomData || !roomCode) return;
+    const game = roomData.game;
+    if (!game?.isTestMode || !game?.botIds) return;
+    if (roomData.meta?.status !== "playing") return;
+
+    const currentTurn = game.currentTurn;
+    const botIds = game.botIds;
+    if (!botIds.includes(currentTurn)) return; // 봇 차례가 아님
+
+    // 1~2초 딜레이 후 봇 플레이
+    const delay = 1000 + Math.random() * 1000;
+    const timer = setTimeout(async () => {
+      // 봇 손패 가져오기
+      const handSnap = await get(ref(db, `rooms/${roomCode}/hands/${currentTurn}`));
+      const botHand = handSnap.val() || [];
+      if (!botHand.length) return;
+
+      const pile = game.pile ?? [];
+      const playerIds = Object.keys(roomData.players ?? {});
+
+      // 낼 수 있는 카드 찾기
+      function findBestPlay(hand, pile) {
+        if (!pile.length) {
+          // 바닥이 비어있으면 가장 약한 카드(숫자 높은) 중 같은 숫자로 가장 많이 낼 수 있는 것
+          const groups = {};
+          hand.forEach(c => {
+            const key = c.joker ? 'joker' : c.rank;
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(c);
+          });
+          // 가장 높은 숫자(약한) 그룹 선택
+          const sorted = Object.entries(groups).sort((a, b) => {
+            const ra = a[0] === 'joker' ? 0 : parseInt(a[0]);
+            const rb = b[0] === 'joker' ? 0 : parseInt(b[0]);
+            return rb - ra; // 높은 숫자(약한 카드) 먼저
+          });
+          return sorted[0]?.[1] || null;
+        }
+
+        const pileCount = pile.length;
+        const pileRank = pile.find(c => !c.joker)?.rank ?? 0;
+
+        // 바닥과 같은 장수이면서 더 낮은 숫자 찾기
+        const groups = {};
+        hand.forEach(c => {
+          if (c.joker) return;
+          if (!groups[c.rank]) groups[c.rank] = [];
+          groups[c.rank].push(c);
+        });
+
+        const jokers = hand.filter(c => c.joker);
+        const candidates = [];
+
+        // 순수 카드로 낼 수 있는지
+        Object.entries(groups).forEach(([rank, cards]) => {
+          if (parseInt(rank) < pileRank && cards.length >= pileCount) {
+            candidates.push(cards.slice(0, pileCount));
+          }
+        });
+
+        // 조커 포함해서 낼 수 있는지
+        if (jokers.length > 0) {
+          Object.entries(groups).forEach(([rank, cards]) => {
+            if (parseInt(rank) < pileRank) {
+              const needed = pileCount - cards.length;
+              if (needed > 0 && needed <= jokers.length) {
+                candidates.push([...cards, ...jokers.slice(0, needed)]);
+              }
+            }
+          });
+          // 조커만으로
+          if (jokers.length >= pileCount && pileRank > 0) {
+            candidates.push(jokers.slice(0, pileCount));
+          }
+        }
+
+        if (!candidates.length) return null;
+        // 가장 약한(높은 숫자) 카드로 내기
+        candidates.sort((a, b) => {
+          const ra = a.find(c => !c.joker)?.rank ?? 0;
+          const rb = b.find(c => !c.joker)?.rank ?? 0;
+          return rb - ra;
+        });
+        return candidates[0];
+      }
+
+      const cardsToPlay = findBestPlay(botHand, pile);
+
+      if (!cardsToPlay) {
+        // 패스
+        const allHandsSnap = await get(ref(db, `rooms/${roomCode}/hands`));
+        const allHands = allHandsSnap.val() || {};
+        const activePlayers = playerIds.filter(id => (allHands[id]?.length ?? 0) > 0);
+        const newPassCount = (game.passCount ?? 0) + 1;
+        const botNick = roomData.players?.[currentTurn]?.nickname;
+        const newLog = [...(game.log ?? []), `${botNick}이(가) 패스했습니다`];
+
+        const idx = playerIds.indexOf(currentTurn);
+        let nextId = playerIds[(idx + 1) % playerIds.length];
+        let tries = 0;
+        while ((allHands[nextId]?.length ?? 0) === 0 && tries < playerIds.length) {
+          const ni = playerIds.indexOf(nextId);
+          nextId = playerIds[(ni + 1) % playerIds.length];
+          tries++;
+        }
+
+        const updates = {};
+        if (newPassCount >= activePlayers.length - 1) {
+          const lastId = game.lastPlayerId;
+          newLog.push(`모두 패스! ${roomData.players?.[lastId]?.nickname}이(가) 새로 시작합니다`);
+          updates[`rooms/${roomCode}/game/pile`] = [];
+          updates[`rooms/${roomCode}/game/passCount`] = 0;
+          updates[`rooms/${roomCode}/game/currentTurn`] = lastId;
+          updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
+        } else {
+          updates[`rooms/${roomCode}/game/passCount`] = newPassCount;
+          updates[`rooms/${roomCode}/game/currentTurn`] = nextId;
+        }
+        updates[`rooms/${roomCode}/game/log`] = newLog.slice(-20);
+        await update(ref(db), updates);
+      } else {
+        // 카드 내기
+        const newBotHand = botHand.filter(c => !cardsToPlay.find(s => s.id === c.id));
+        const allHandsSnap = await get(ref(db, `rooms/${roomCode}/hands`));
+        const allHands = { ...(allHandsSnap.val() || {}), [currentTurn]: newBotHand };
+        const botNick = roomData.players?.[currentTurn]?.nickname;
+        const newFinished = [...(game.finished ?? [])];
+        const newLog = [...(game.log ?? []), `${botNick}이(가) ${cardsToPlay.length}장을 냈습니다`];
+
+        if (!newBotHand.length && !newFinished.includes(currentTurn)) {
+          newFinished.push(currentTurn);
+          newLog.push(`🎉 ${botNick}이(가) 패를 다 냈습니다!`);
+        }
+
+        const remaining = playerIds.filter(id => (allHands[id]?.length ?? 0) > 0);
+        const isOver = remaining.length <= 1;
+        if (isOver && remaining.length === 1) {
+          newFinished.push(remaining[0]);
+          newLog.push("라운드 종료!");
+        }
+
+        const idx = playerIds.indexOf(currentTurn);
+        let nextId = playerIds[(idx + 1) % playerIds.length];
+        let tries = 0;
+        while ((allHands[nextId]?.length ?? 0) === 0 && tries < playerIds.length) {
+          const ni = playerIds.indexOf(nextId);
+          nextId = playerIds[(ni + 1) % playerIds.length];
+          tries++;
+        }
+
+        const updates = {};
+        updates[`rooms/${roomCode}/hands/${currentTurn}`] = newBotHand;
+        updates[`rooms/${roomCode}/players/${currentTurn}/cardCount`] = newBotHand.length;
+        updates[`rooms/${roomCode}/game/pile`] = cardsToPlay;
+        updates[`rooms/${roomCode}/game/lastPlayerId`] = currentTurn;
+        updates[`rooms/${roomCode}/game/passCount`] = 0;
+        updates[`rooms/${roomCode}/game/finished`] = newFinished;
+        updates[`rooms/${roomCode}/game/log`] = newLog.slice(-20);
+
+        if (isOver) {
+          const ranks = assignRanks(newFinished, playerIds.length);
+          updates[`rooms/${roomCode}/game/ranks`] = ranks;
+          updates[`rooms/${roomCode}/meta/status`] = "result";
+          updates[`rooms/${roomCode}/game/readyForNext`] = [];
+          newFinished.forEach(id => { updates[`rooms/${roomCode}/players/${id}/rank`] = ranks[id]; });
+        } else {
+          updates[`rooms/${roomCode}/game/currentTurn`] = nextId;
+        }
+        await update(ref(db), updates);
+      }
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [roomData?.game?.currentTurn, roomCode]);
+
   // ── 테스트 모드: 봇 4명과 함께 방 만들기 ──────────────────
   async function startTestGame(nickname) {
     const code = generateRoomCode();
