@@ -1605,9 +1605,12 @@ function useFirebaseGame() {
         });
 
         if (!pile.length) {
-          // 바닥이 비어있으면 가장 약한(높은 숫자) 카드부터 냄 (원래 전략)
+          // 바닥이 비어있으면 반드시 카드를 내야 함 (패스 불가)
+          // 숫자카드 중 가장 약한(높은 숫자) 그룹 선택
           const sorted = Object.entries(groups).sort((a, b) => parseInt(b[0]) - parseInt(a[0]));
-          return sorted[0]?.[1] || null;
+          if (sorted.length > 0) return sorted[0][1];
+          // 숫자카드가 없고 조커만 있는 경우 - 달무티 룰상 불가능하지만 방어코드
+          return null;
         }
 
         const pileCount = pile.length;
@@ -1791,10 +1794,11 @@ function useFirebaseGame() {
             const leaderNick = roomData.players?.[newLeader]?.nickname ?? "다음 플레이어";
             newLog.push(`🔄 ${botNick}이(가) 낸 ${botCardDesc}에 아무도 대응 못함! → ${leaderNick}이(가) 새로 시작`);
 
-            // 1단계: 카드 바닥에 표시 + 로그 즉시
+            // 1단계: 카드 바닥에 표시 + 로그 즉시, currentTurn을 'pending'으로 잠금
             updates[`rooms/${roomCode}/game/pile`] = cardsToPlay;
             updates[`rooms/${roomCode}/game/lastPlayerId`] = currentTurn;
             updates[`rooms/${roomCode}/game/passCount`] = 0;
+            updates[`rooms/${roomCode}/game/currentTurn`] = '__pending__';
             updates[`rooms/${roomCode}/game/log`] = newLog.slice(-30);
             await update(ref(db), updates);
 
@@ -2027,12 +2031,12 @@ function useFirebaseGame() {
         const leaderNick = roomData?.players?.[actualLeader]?.nickname ?? playerNick;
         newLog.push(`🔄 ${playerNick}이(가) 낸 ${cardDesc}에 아무도 대응 못함! → ${leaderNick}이(가) 새로 시작`);
 
-        // 1단계: 카드 바닥에 표시 + 로그 즉시
+        // 1단계: 카드 바닥에 표시 + 로그 즉시, currentTurn을 pending으로 잠금
         updates[`rooms/${roomCode}/game/pile`] = cards;
         updates[`rooms/${roomCode}/game/lastPlayerId`] = playerId;
         updates[`rooms/${roomCode}/game/passCount`] = 0;
+        updates[`rooms/${roomCode}/game/currentTurn`] = '__pending__';
         updates[`rooms/${roomCode}/game/log`] = newLog.slice(-30);
-        // 손패/cardCount는 위에서 이미 설정됨
         await update(ref(db), updates);
 
         // 2단계: 2초 후 바닥 초기화 + 선 이동
