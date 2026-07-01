@@ -480,7 +480,126 @@ function GameTable({ gs, myId, onPlay, onPass }) {
       const timer = setTimeout(() => setDalmutEffect(null), 3000);
       return () => clearTimeout(timer);
     }
+    if (latest && latest.includes("라운드 종료")) playSound('round_end');
+    if (latest && latest.includes("혁명을 선언")) playSound('revolution');
+    if (latest && latest.includes("세금 완료")) playSound('tax');
   }, [log?.length]);
+
+  // 배경음 루프
+  const bgTimer = useRef(null);
+  useEffect(() => {
+    function playBg() {
+      playSound('bg');
+      bgTimer.current = setTimeout(playBg, 2400);
+    }
+    playBg();
+    return () => clearTimeout(bgTimer.current);
+  }, []);
+  const audioCtx = useRef(null);
+  function getAudioCtx() {
+    if (!audioCtx.current) audioCtx.current = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx.current;
+  }
+
+  function playSound(type) {
+    try {
+      const ctx = getAudioCtx();
+      const now = ctx.currentTime;
+
+      if (type === 'card') {
+        // 카드 내기: 짧고 경쾌한 소리
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.exponentialRampToValueAtTime(400, now + 0.1);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.start(now); osc.stop(now + 0.15);
+
+      } else if (type === 'pass') {
+        // 패스: 낮고 짧은 소리
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(250, now);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        osc.start(now); osc.stop(now + 0.2);
+
+      } else if (type === 'dalmuti') {
+        // 1번 카드 팡파레
+        const notes = [523, 659, 784, 1047];
+        notes.forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + i * 0.12);
+          gain.gain.setValueAtTime(0.4, now + i * 0.12);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.3);
+          osc.start(now + i * 0.12);
+          osc.stop(now + i * 0.12 + 0.3);
+        });
+
+      } else if (type === 'round_end') {
+        // 라운드 종료
+        const notes = [784, 659, 523];
+        notes.forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.frequency.setValueAtTime(freq, now + i * 0.15);
+          gain.gain.setValueAtTime(0.3, now + i * 0.15);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.3);
+          osc.start(now + i * 0.15);
+          osc.stop(now + i * 0.15 + 0.3);
+        });
+
+      } else if (type === 'tax') {
+        // 세금 납부: 동전 소리 느낌
+        [800, 1000, 800].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + i * 0.08);
+          gain.gain.setValueAtTime(0.25, now + i * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.1);
+          osc.start(now + i * 0.08);
+          osc.stop(now + i * 0.08 + 0.1);
+        });
+
+      } else if (type === 'revolution') {
+        // 혁명: 강렬한 소리
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(300, now + 0.5);
+        gain.gain.setValueAtTime(0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+        osc.start(now); osc.stop(now + 0.6);
+
+      } else if (type === 'bg') {
+        // 배경음: 잔잔한 반복 멜로디 (짧은 루프)
+        const bgNotes = [262, 330, 392, 330, 294, 262];
+        bgNotes.forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + i * 0.4);
+          gain.gain.setValueAtTime(0.05, now + i * 0.4);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.4 + 0.4);
+          osc.start(now + i * 0.4);
+          osc.stop(now + i * 0.4 + 0.4);
+        });
+      }
+    } catch(e) { /* 오디오 지원 안 하는 환경 무시 */ }
+  }
 
   function toggle(card) {
     setSelected(prev =>
@@ -488,9 +607,24 @@ function GameTable({ gs, myId, onPlay, onPass }) {
     );
   }
 
-  function handlePlay() {
-    const r = onPlay(selected);
-    if (r?.ok) setSelected([]);
+  async function handlePlay() {
+    const cards = selected;
+    const r = await onPlay(cards);
+    if (r?.ok) {
+      setSelected([]);
+      const nj = cards.filter(c => !c.joker);
+      if (nj[0]?.rank === 1) {
+        playSound('dalmuti');
+      } else {
+        playSound('card');
+      }
+    }
+  }
+
+  async function handlePass() {
+    playSound('pass');
+    await onPass();
+    setSelected([]);
   }
 
   const validMsg = (() => {
@@ -625,7 +759,7 @@ function GameTable({ gs, myId, onPlay, onPass }) {
             className="px-6 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95">
             카드 내기 ({selected.length})
           </button>
-          <button onClick={() => { onPass(); setSelected([]); }}
+          <button onClick={handlePass}
             disabled={!isMyTurn || !pile || pile.length === 0}
             className="px-6 py-2 bg-slate-600 hover:bg-slate-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-semibold rounded-xl shadow-lg transition-all active:scale-95">
             패스
