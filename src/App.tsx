@@ -1691,7 +1691,7 @@ function useFirebaseGame() {
         const botNick = roomData.players?.[currentTurn]?.nickname;
         const newFinished = [...(game.finished ?? [])];
         const nonJokerBot = cardsToPlay.filter(c => !c.joker);
-        const botCardDesc = nonJokerBot.length > 0 ? `${nonJokerBot[0].rank}번 카드` : "조커";
+        const botCardDesc = nonJokerBot.length > 0 ? `${nonJokerBot[0].rank}번 카드 ${cardsToPlay.length}장` : `조커 ${cardsToPlay.length}장`;
         const newLog = [...(game.log ?? []), `${botNick}이(가) ${botCardDesc} ${cardsToPlay.length}장을 냈습니다`];
 
         if (!newBotHand.length && !newFinished.includes(currentTurn)) {
@@ -1919,7 +1919,7 @@ function useFirebaseGame() {
     // 상세 로그
     const nonJoker = cards.filter(c => !c.joker);
     const cardRank = nonJoker[0]?.rank;
-    const cardDesc = cards.every(c => c.joker) ? "조커" : `${cardRank}번 카드`;
+    const cardDesc = cards.every(c => c.joker) ? `조커 ${cards.length}장` : `${cardRank}번 카드 ${cards.length}장`;
     const newLog = [...(game?.log ?? []), `${playerNick}이(가) ${cardDesc} ${cards.length}장을 냈습니다`];
 
     if (newHand.length === 0 && !newFinished.includes(playerId)) {
@@ -2012,12 +2012,13 @@ function useFirebaseGame() {
           if (activeOthers.includes(candidate)) { newLeader = candidate; break; }
         }
         newLeader = newLeader ?? activeOthers[0] ?? nextId;
-        const leaderNick = roomData?.players?.[newLeader]?.nickname ?? "다음 플레이어";
+        const actualLeader = newHand.length > 0 ? playerId : newLeader;
+        const leaderNick = roomData?.players?.[actualLeader]?.nickname ?? playerNick;
         newLog.push(`🔄 ${playerNick}이(가) 낸 ${cardDesc}에 아무도 대응 못함! → ${leaderNick}이(가) 새로 시작`);
         updates[`rooms/${roomCode}/game/pile`] = [];
         updates[`rooms/${roomCode}/game/passCount`] = 0;
         updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
-        updates[`rooms/${roomCode}/game/currentTurn`] = newHand.length > 0 ? playerId : newLeader;
+        updates[`rooms/${roomCode}/game/currentTurn`] = actualLeader;
       } else {
         updates[`rooms/${roomCode}/game/currentTurn`] = nextId;
       }
