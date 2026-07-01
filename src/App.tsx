@@ -224,7 +224,7 @@ function Card({ card, selected, onClick, disabled, size = "md" }) {
         ${selected ? "border-white scale-110 -translate-y-3 shadow-2xl" : "border-transparent"}
         ${disabled ? "opacity-60 cursor-not-allowed" : "hover:-translate-y-1 hover:shadow-xl cursor-pointer"}`}
     >
-      <span>{label}</span>
+      <span className={isJoker ? "text-3xl" : ""}>{label}</span>
       {selected && (
         <span className="absolute -top-2 -right-2 bg-white text-blue-600 rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold">✓</span>
       )}
