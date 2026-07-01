@@ -1327,7 +1327,11 @@ function useFirebaseGame() {
 
         const updates = {};
         if (newPassCount >= activePlayers.length - 1) {
-          const lastId = game.lastPlayerId;
+          let lastId = game.lastPlayerId;
+          // lastPlayerId가 패가 없으면 다음 활성 플레이어로
+          if (!lastId || (allHands[lastId]?.length ?? 0) === 0) {
+            lastId = activePlayers.find(id => id !== currentTurn) ?? activePlayers[0];
+          }
           newLog.push(`모두 패스! ${roomData.players?.[lastId]?.nickname}이(가) 새로 시작합니다`);
           updates[`rooms/${roomCode}/game/pile`] = [];
           updates[`rooms/${roomCode}/game/passCount`] = 0;
@@ -1337,7 +1341,7 @@ function useFirebaseGame() {
           updates[`rooms/${roomCode}/game/passCount`] = newPassCount;
           updates[`rooms/${roomCode}/game/currentTurn`] = nextId;
         }
-        updates[`rooms/${roomCode}/game/log`] = newLog.slice(-20);
+        updates[`rooms/${roomCode}/game/log`] = newLog.slice(-30);
         await update(ref(db), updates);
       } else {
         // 카드 내기
@@ -1364,6 +1368,9 @@ function useFirebaseGame() {
 
         // 1번 카드면 즉시 바닥 초기화
         const botPlayedRankOne = nonJokerBot.length > 0 && nonJokerBot[0].rank === 1;
+
+        // allHands에 봇의 새 손패 반영 (nextId 계산에 활용)
+        allHands[currentTurn] = newBotHand;
 
         const idx = playerIds.indexOf(currentTurn);
         let nextId = playerIds[(idx + 1) % playerIds.length];
@@ -1393,12 +1400,39 @@ function useFirebaseGame() {
           updates[`rooms/${roomCode}/game/pile`] = [];
           updates[`rooms/${roomCode}/game/passCount`] = 0;
           updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
-          updates[`rooms/${roomCode}/game/currentTurn`] = newBotHand.length > 0 ? currentTurn : nextId;
+          // 봇이 패를 다 냈으면 다음 활성 플레이어가 선
+          if (newBotHand.length > 0) {
+            updates[`rooms/${roomCode}/game/currentTurn`] = currentTurn;
+          } else {
+            updates[`rooms/${roomCode}/game/currentTurn`] = nextId;
+          }
         } else {
-          updates[`rooms/${roomCode}/game/pile`] = cardsToPlay;
-          updates[`rooms/${roomCode}/game/lastPlayerId`] = currentTurn;
-          updates[`rooms/${roomCode}/game/passCount`] = 0;
-          updates[`rooms/${roomCode}/game/currentTurn`] = nextId;
+          // 자동 패스 체크: 남은 플레이어 중 아무도 못 내면 바닥 초기화
+          const botCardRank = nonJokerBot[0]?.rank;
+          const remainingActive = remaining.filter(id => id !== currentTurn);
+          const canAnyone = botCardRank && remainingActive.some(id => {
+            const hand = allHands[id] || [];
+            const nj = hand.filter(c => !c.joker);
+            const jk = hand.filter(c => c.joker).length;
+            const grps = {};
+            nj.forEach(c => { grps[c.rank] = (grps[c.rank] || []); grps[c.rank].push(c); });
+            return Object.entries(grps).some(([r, arr]) =>
+              parseInt(r) < botCardRank && (arr.length >= cardsToPlay.length || arr.length + jk >= cardsToPlay.length)
+            );
+          });
+
+          if (!canAnyone && remainingActive.length > 0 && botCardRank) {
+            newLog.push(`아무도 낼 수 없어요! ${botNick}이(가) 새로 시작합니다`);
+            updates[`rooms/${roomCode}/game/pile`] = [];
+            updates[`rooms/${roomCode}/game/passCount`] = 0;
+            updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
+            updates[`rooms/${roomCode}/game/currentTurn`] = newBotHand.length > 0 ? currentTurn : nextId;
+          } else {
+            updates[`rooms/${roomCode}/game/pile`] = cardsToPlay;
+            updates[`rooms/${roomCode}/game/lastPlayerId`] = currentTurn;
+            updates[`rooms/${roomCode}/game/passCount`] = 0;
+            updates[`rooms/${roomCode}/game/currentTurn`] = nextId;
+          }
         }
         await update(ref(db), updates);
       }
@@ -1642,7 +1676,7 @@ function useFirebaseGame() {
       let lastId = game?.lastPlayerId;
       // lastPlayerId가 패가 없으면 다음 활성 플레이어로
       if (!lastId || (allHands[lastId]?.length ?? 0) === 0) {
-        lastId = activePlayers[0];
+        lastId = activePlayers.find(id => id !== uid) ?? activePlayers[0];
       }
       newLog.push(`모두 패스! ${roomData?.players?.[lastId]?.nickname}이(가) 새로 시작합니다`);
       updates[`rooms/${roomCode}/game/pile`] = [];
