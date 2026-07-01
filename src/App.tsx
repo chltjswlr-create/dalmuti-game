@@ -407,6 +407,11 @@ function GameTable({ gs, myId, onPlay, onPass }) {
   const self = players?.find(p => p.id === myId);
   const others = (players || []).filter(p => p.id !== myId);
 
+  // 턴이 바뀔 때마다 선택 초기화
+  useEffect(() => {
+    setSelected([]);
+  }, [currentTurn]);
+
   function toggle(card) {
     setSelected(prev =>
       prev.find(c => c.id === card.id) ? prev.filter(c => c.id !== card.id) : [...prev, card]
