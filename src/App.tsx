@@ -507,7 +507,7 @@ function GameTable({ gs, myId, onPlay, onPass }) {
       } else if (latest.includes("🔄 아무도 낼 수 없어요")) {
         const match = latest.match(/🔄 아무도 낼 수 없어요! (.+?)이\(가\)/);
         const winner = match?.[1] ?? "플레이어";
-        setAutoClearEffect({ winner });
+        setAutoClearEffect(prev => prev ? prev : { winner });
         setTimeout(() => setAutoClearEffect(null), 2500);
       } else if (latest.includes("장을 냈습니다")) {
         const countMatch = latest.match(/(\d+)장을 냈습니다/);
@@ -1281,10 +1281,8 @@ function useFirebaseGame() {
       if (status === "waiting") setScreen("lobby");
       else if (status === "tax") {
         setScreen("tax");
-        // 내가 받은 세금 카드 추적
         const recv = data.game?.tributeReceived || {};
         setTributeReceived(recv);
-        // taxPhase 결정
         const myRole = data.game?.ranks?.[uid];
         const tributeDone = data.game?.tributeDone || {};
         const returnDone = data.game?.returnDone || {};
@@ -1294,6 +1292,93 @@ function useFirebaseGame() {
           setTaxPhase("return_pick");
         else
           setTaxPhase("waiting");
+
+        // ── 봇 세금 자동 처리 ──────────────────────────────────
+        const botIds = data.game?.botIds ?? [];
+        const ranks = data.game?.ranks ?? {};
+        if (botIds.length > 0) {
+          // 봇 중 세금 내야 하는 봇 처리
+          botIds.forEach(async botId => {
+            const botRole = ranks[botId];
+            if (!botRole) return;
+
+            if ((botRole === "great_slave" || botRole === "slave") && !tributeDone[botId]) {
+              // 봇 손패에서 가장 좋은 카드 바치기
+              const botHandSnap = await get(ref(db, `rooms/${roomCode}/hands/${botId}`));
+              const botHand = botHandSnap.val() || [];
+              const sorted = [...botHand].sort((a, b) => (a.rank || 0) - (b.rank || 0));
+              const count = botRole === "great_slave" ? 2 : 1;
+              const tribute = sorted.slice(0, count);
+              if (tribute.length < count) return;
+
+              const receiverId = botRole === "great_slave"
+                ? Object.keys(ranks).find(id => ranks[id] === "dalmuti")
+                : Object.keys(ranks).find(id => ranks[id] === "prime");
+              if (!receiverId) return;
+
+              const newBotHand = botHand.filter(c => !tribute.find(t => t.id === c.id));
+              const existing = data.game?.tributeReceived?.[receiverId] ?? [];
+              const updates = {};
+              updates[`rooms/${roomCode}/hands/${botId}`] = newBotHand;
+              updates[`rooms/${roomCode}/players/${botId}/cardCount`] = newBotHand.length;
+              updates[`rooms/${roomCode}/game/tributeDone/${botId}`] = true;
+              updates[`rooms/${roomCode}/game/tributeReceived/${receiverId}`] = [...existing, ...tribute];
+              await update(ref(db), updates);
+            }
+
+            if ((botRole === "dalmuti" || botRole === "prime") && tributeDone[botId] && !returnDone[botId]) {
+              // 봇이 달무티/총리면 가장 나쁜 카드 돌려주기
+              const botHandSnap = await get(ref(db, `rooms/${roomCode}/hands/${botId}`));
+              const botHand = botHandSnap.val() || [];
+              const received = data.game?.tributeReceived?.[botId] ?? [];
+              const count = botRole === "dalmuti" ? 2 : 1;
+              // 받은 카드 제외하고 가장 약한 카드 선택
+              const handWithReceived = [...botHand, ...received];
+              const sorted = [...handWithReceived].sort((a, b) => (b.rank || 0) - (a.rank || 0));
+              const returnCards = sorted.slice(0, count);
+
+              const targetId = botRole === "dalmuti"
+                ? Object.keys(ranks).find(id => ranks[id] === "great_slave")
+                : Object.keys(ranks).find(id => ranks[id] === "slave");
+              if (!targetId) return;
+
+              const targetHandSnap = await get(ref(db, `rooms/${roomCode}/hands/${targetId}`));
+              const targetHand = targetHandSnap.val() || [];
+              const newBotHand = [...handWithReceived.filter(c => !returnCards.find(r => r.id === c.id))].sort((a, b) => (a.rank || 0) - (b.rank || 0));
+              const newTargetHand = [...targetHand.filter(c => !received.find(r => r.id === c.id)), ...returnCards].sort((a, b) => (a.rank || 0) - (b.rank || 0));
+
+              const updates = {};
+              updates[`rooms/${roomCode}/hands/${botId}`] = newBotHand;
+              updates[`rooms/${roomCode}/players/${botId}/cardCount`] = newBotHand.length;
+              updates[`rooms/${roomCode}/hands/${targetId}`] = newTargetHand;
+              updates[`rooms/${roomCode}/players/${targetId}/cardCount`] = newTargetHand.length;
+              updates[`rooms/${roomCode}/game/returnDone/${botId}`] = true;
+
+              // 모든 세금 완료 체크
+              const newReturnDone = { ...returnDone, [botId]: true };
+              const requiredReturns = [
+                Object.values(ranks).includes("dalmuti") && Object.keys(ranks).find(id => ranks[id] === "dalmuti"),
+                Object.values(ranks).includes("prime") && Object.keys(ranks).find(id => ranks[id] === "prime")
+              ].filter(Boolean);
+              const allDone = requiredReturns.every(id => newReturnDone[id]);
+
+              if (allDone) {
+                const dalmutiId = Object.keys(ranks).find(id => ranks[id] === "dalmuti");
+                updates[`rooms/${roomCode}/meta/status`] = "playing";
+                updates[`rooms/${roomCode}/game/currentTurn`] = dalmutiId;
+                updates[`rooms/${roomCode}/game/pile`] = [];
+                updates[`rooms/${roomCode}/game/passCount`] = 0;
+                updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
+                updates[`rooms/${roomCode}/game/finished`] = [];
+                updates[`rooms/${roomCode}/game/log`] = ["세금 완료! 달무티부터 시작합니다."];
+                updates[`rooms/${roomCode}/game/tributeDone`] = {};
+                updates[`rooms/${roomCode}/game/returnDone`] = {};
+                updates[`rooms/${roomCode}/game/tributeReceived`] = {};
+              }
+              await update(ref(db), updates);
+            }
+          });
+        }
       }
       else if (status === "playing") setScreen("game");
       else if (status === "result") setScreen("result");
