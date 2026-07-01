@@ -1535,7 +1535,6 @@ function useFirebaseGame() {
         updates[`rooms/${roomCode}/hands/${currentTurn}`] = newBotHand;
         updates[`rooms/${roomCode}/players/${currentTurn}/cardCount`] = newBotHand.length;
         updates[`rooms/${roomCode}/game/finished`] = newFinished;
-        updates[`rooms/${roomCode}/game/log`] = newLog.slice(-30);
 
         if (isOver) {
           const ranks = assignRanks(newFinished, playerIds.length);
@@ -1550,7 +1549,6 @@ function useFirebaseGame() {
           updates[`rooms/${roomCode}/game/pile`] = [];
           updates[`rooms/${roomCode}/game/passCount`] = 0;
           updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
-          // 봇이 패를 다 냈으면 다음 활성 플레이어가 선
           if (newBotHand.length > 0) {
             updates[`rooms/${roomCode}/game/currentTurn`] = currentTurn;
           } else {
@@ -1593,6 +1591,8 @@ function useFirebaseGame() {
             updates[`rooms/${roomCode}/game/currentTurn`] = nextId;
           }
         }
+        // 로그는 모든 newLog.push 완료 후 마지막에 저장
+        updates[`rooms/${roomCode}/game/log`] = newLog.slice(-30);
         await update(ref(db), updates);
       }
     }, delay);
@@ -1732,10 +1732,8 @@ function useFirebaseGame() {
     updates[`rooms/${roomCode}/hands/${playerId}`] = newHand;
     updates[`rooms/${roomCode}/players/${playerId}/cardCount`] = newHand.length;
     updates[`rooms/${roomCode}/game/finished`] = newFinished;
-    updates[`rooms/${roomCode}/game/log`] = newLog.slice(-30);
 
     // 1번 카드(달무티) 내면 즉시 바닥 초기화, 본인이 새 선
-    const isRankOne = cardRank === 1 || (cards.length > 0 && cards.every(c => c.joker));
     const playedRankOne = nonJoker.length > 0 && nonJoker[0].rank === 1;
 
     if (playedRankOne && !isRoundOver) {
@@ -1743,8 +1741,6 @@ function useFirebaseGame() {
       updates[`rooms/${roomCode}/game/pile`] = [];
       updates[`rooms/${roomCode}/game/passCount`] = 0;
       updates[`rooms/${roomCode}/game/lastPlayerId`] = null;
-      updates[`rooms/${roomCode}/game/log`] = newLog.slice(-30);
-      // 패가 있으면 본인이 선, 없으면 다음 사람
       if (newHand.length > 0) {
         updates[`rooms/${roomCode}/game/currentTurn`] = playerId;
       } else {
@@ -1771,7 +1767,6 @@ function useFirebaseGame() {
       updates[`rooms/${roomCode}/game/lastPlayerId`] = playerId;
       updates[`rooms/${roomCode}/game/passCount`] = 0;
 
-      // 다음 플레이어 계산
       let nextId = playerIds[(playerIds.indexOf(playerId) + 1) % playerIds.length];
       let tries = 0;
       while ((allHands[nextId]?.length ?? 0) === 0 && tries < playerIds.length) {
@@ -1779,7 +1774,6 @@ function useFirebaseGame() {
         tries++;
       }
 
-      // 남은 플레이어 중 아무도 낼 수 없으면 자동으로 바닥 초기화
       const pileCountNeeded = cards.length;
       function canPlayerPlayCards(hand) {
         const nj = hand.filter(c => !c.joker);
@@ -1804,9 +1798,10 @@ function useFirebaseGame() {
       } else {
         updates[`rooms/${roomCode}/game/currentTurn`] = nextId;
       }
-      updates[`rooms/${roomCode}/game/log`] = newLog.slice(-30);
     }
 
+    // 로그는 모든 push 완료 후 마지막에 저장
+    updates[`rooms/${roomCode}/game/log`] = newLog.slice(-30);
     await update(ref(db), updates);
     return { ok: true };
   }
