@@ -233,8 +233,8 @@ const CARD_COLORS = {
   8:  { bg: "#164e63", text: "#e0f2fe" },
   9:  { bg: "#1e3a5f", text: "#dbeafe" },
   10: { bg: "#312e81", text: "#e0e7ff" },
-  11: { bg: "#3b0764", text: "#f3e8ff" },
-  12: { bg: "#1a0a2e", text: "#e9d5ff" },
+  11: { bg: "#4c1180", text: "#f5eeff" },
+  12: { bg: "#2d1b4e", text: "#f0e6ff" },
 };
 
 const CARD_DATA = {
@@ -277,7 +277,7 @@ function Card({ card, selected, onClick, disabled, size = "md" }) {
       {!isJoker && <span className="absolute top-1 left-1.5 text-[9px] font-black" style={{ color: col.text, opacity: 0.8 }}>{card.rank}</span>}
       {/* 중앙 이모지 */}
       <div className="flex-1 flex items-center justify-center">
-        <span className={`${small ? "text-lg" : "text-2xl"} leading-none`}>
+        <span className={`${small ? "text-lg" : "text-2xl"} leading-none`} style={{ filter: "drop-shadow(0 0 4px rgba(255,255,255,0.8)) brightness(1.3)" }}>
           {isJoker ? "🃏" : data?.emoji}
         </span>
       </div>
@@ -492,39 +492,40 @@ function GameTable({ gs, myId, onPlay, onPass }) {
     if (!newLogs.length) return;
     prevLogLen.current = log.length;
 
-    // 새 로그들을 모두 체크
+    // 새 로그들을 모두 체크 (독립적으로 각각 체크 - else if 제거)
     newLogs.forEach(latest => {
       if (!latest) return;
+
       if (latest.includes("✨ 1번 카드")) {
-        const match = latest.match(/^✨ 1번 카드! (.+?)이\(가\)/);
+        const match = latest.match(/✨ 1번 카드! (.+?)이\(가\)/);
         const nickname = match?.[1] ?? "플레이어";
-        // 카드 날아가는 애니메이션 후에 이펙트 표시
         setTimeout(() => {
           setDalmutEffect({ nickname });
           setTimeout(() => setDalmutEffect(null), 3000);
         }, 400);
         playSound('dalmuti');
-      } else if (latest.includes("🔄 아무도 낼 수 없어요")) {
+      }
+
+      if (latest.includes("🔄 아무도 낼 수 없어요")) {
         const match = latest.match(/🔄 아무도 낼 수 없어요! (.+?)이\(가\)/);
         const winner = match?.[1] ?? "플레이어";
         setAutoClearEffect(prev => prev ? prev : { winner });
         setTimeout(() => setAutoClearEffect(null), 2500);
-      } else if (latest.includes("장을 냈습니다")) {
+      }
+
+      if (latest.includes("장을 냈습니다")) {
         const countMatch = latest.match(/(\d+)장을 냈습니다/);
         const count = parseInt(countMatch?.[1] ?? 1);
         const isMyPlay = self?.nickname && latest.startsWith(self.nickname);
         setFlyAnim({ fromBottom: !!isMyPlay, count });
         setTimeout(() => setFlyAnim(null), 700);
         if (!latest.includes("1번 카드")) playSound('card');
-      } else if (latest.includes("패스했습니다")) {
-        playSound('pass');
-      } else if (latest.includes("라운드 종료")) {
-        playSound('round_end');
-      } else if (latest.includes("혁명을 선언")) {
-        playSound('revolution');
-      } else if (latest.includes("세금 완료")) {
-        playSound('tax');
       }
+
+      if (latest.includes("패스했습니다")) playSound('pass');
+      if (latest.includes("라운드 종료")) playSound('round_end');
+      if (latest.includes("혁명을 선언")) playSound('revolution');
+      if (latest.includes("세금 완료")) playSound('tax');
     });
   }, [log?.length]);
 
@@ -787,6 +788,16 @@ function GameTable({ gs, myId, onPlay, onPass }) {
         .turn-glow { animation: turnGlow 1.5s ease-in-out infinite; }
         .slide-in  { animation: slideInUp 0.3s ease-out forwards; }
         .pop-in    { animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+        @keyframes handGlow {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(250,204,21,0), inset 0 0 0 0 rgba(250,204,21,0); border-color: rgba(250,204,21,0.2); }
+          50% { box-shadow: 0 0 40px 4px rgba(250,204,21,0.3), inset 0 0 20px 0 rgba(250,204,21,0.1); border-color: rgba(250,204,21,0.8); }
+        }
+        @keyframes bannerPulse {
+          0%, 100% { transform: scale(1); background: #eab308; }
+          50% { transform: scale(1.08); background: #fbbf24; box-shadow: 0 0 20px rgba(250,204,21,0.8); }
+        }
+        .hand-glow { animation: handGlow 1.2s ease-in-out infinite; border: 2px solid rgba(250,204,21,0.2); border-radius: 16px; }
+        .banner-pulse { animation: bannerPulse 0.9s ease-in-out infinite; }
       `}</style>
 
       {/* 카드 날아가는 애니메이션 */}
@@ -810,15 +821,15 @@ function GameTable({ gs, myId, onPlay, onPass }) {
         </div>
       )}
 
-      {/* 자동 패스 알림 */}
+      {/* 자동 패스 알림 - 최상위 레이어 */}
       {autoClearEffect && (
-        <div className="fixed inset-0 z-45 flex items-center justify-center pointer-events-none">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none">
           <div className="text-center pop-in">
             <div className="text-5xl mb-2">🔄</div>
-            <div className="bg-blue-500/90 text-white font-black text-lg px-6 py-3 rounded-2xl shadow-2xl">
+            <div className="bg-blue-500/95 text-white font-black text-lg px-6 py-3 rounded-2xl shadow-2xl border border-blue-300/30">
               아무도 못 냅니다!
             </div>
-            <div className="text-white/80 font-bold text-base mt-2 drop-shadow-lg">
+            <div className="text-white font-bold text-base mt-2 drop-shadow-lg bg-black/40 px-4 py-1 rounded-xl">
               {autoClearEffect.winner}이(가) 새로 시작 ▶
             </div>
           </div>
@@ -879,7 +890,8 @@ function GameTable({ gs, myId, onPlay, onPass }) {
         <div className="flex items-center gap-2">
           <button onClick={() => setShowHistory(true)} className="text-white/50 hover:text-white text-xs border border-white/20 px-2 py-1 rounded-lg transition-all">📋</button>
           <span className={`text-xs font-bold px-3 py-1 rounded-full transition-all
-            ${isMyTurn ? "bg-yellow-400 text-yellow-900 animate-pulse" : "bg-white/10 text-white/50"}`}>
+            ${isMyTurn ? "text-yellow-900 banner-pulse" : "bg-white/10 text-white/50"}`}
+            style={isMyTurn ? { background: '#eab308' } : {}}>
             {isMyTurn ? "⚡ 내 차례!" : "대기 중"}
           </span>
         </div>
@@ -911,10 +923,15 @@ function GameTable({ gs, myId, onPlay, onPass }) {
       </div>
 
       {/* 내 손패 */}
-      <div className="bg-black/50 backdrop-blur border-t border-white/10 px-4 py-4">
+      <div className={`bg-black/50 backdrop-blur border-t px-4 py-4 transition-all duration-300 ${isMyTurn ? 'hand-glow border-yellow-400/30' : 'border-white/10'}`}>
         {self?.rank && (
           <div className={`inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full bg-gradient-to-r ${RANK_COLOR[self.rank]} text-white mb-2`}>
             {RANK_LABEL[self.rank]}
+          </div>
+        )}
+        {isMyTurn && (
+          <div className="text-center text-yellow-400 text-xs font-bold mb-2 animate-pulse">
+            ⚡ 카드를 선택하고 내세요!
           </div>
         )}
         <div className="flex flex-wrap gap-1 justify-center mb-3 min-h-[88px] items-end">
@@ -932,12 +949,18 @@ function GameTable({ gs, myId, onPlay, onPass }) {
         <div className="flex gap-3 justify-center">
           <button onClick={handlePlay}
             disabled={!isMyTurn || selected.length === 0 || !!validMsg}
-            className="px-6 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95">
+            className={`px-6 py-2 font-bold rounded-xl shadow-lg transition-all active:scale-95
+              ${isMyTurn && selected.length > 0 && !validMsg
+                ? 'bg-emerald-500 hover:bg-emerald-400 text-white ring-2 ring-emerald-300/50'
+                : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}>
             카드 내기 ({selected.length})
           </button>
           <button onClick={handlePass}
             disabled={!isMyTurn || !pile || pile.length === 0}
-            className="px-6 py-2 bg-slate-600 hover:bg-slate-500 disabled:bg-slate-800 disabled:text-slate-600 text-white font-semibold rounded-xl shadow-lg transition-all active:scale-95">
+            className={`px-6 py-2 font-semibold rounded-xl shadow-lg transition-all active:scale-95
+              ${isMyTurn && pile?.length > 0
+                ? 'bg-slate-500 hover:bg-slate-400 text-white'
+                : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>
             패스
           </button>
         </div>
