@@ -269,7 +269,7 @@ function Card({ card, selected, onClick, disabled, size = "md" }) {
       {isJoker ? (
         <div className="flex flex-col items-center justify-center">
           <span className="text-3xl leading-none">🃏</span>
-          {size !== "sm" && <span className="text-[8px] opacity-80 font-bold mt-0.5">어수룩한자</span>}
+          {size !== "sm" && <span className="text-[8px] opacity-80 font-bold mt-0.5">어릿광대</span>}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center w-full h-full p-0.5">
@@ -464,32 +464,51 @@ function TaxScreen({ myId, myHand, ranks, tributeMap, onTributeDone, onReturnDon
 function GameTable({ gs, myId, onPlay, onPass }) {
   const [selected, setSelected] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
-  const [dalmutEffect, setDalmutEffect] = useState(null); // { nickname }
+  const [dalmutEffect, setDalmutEffect] = useState(null);
+  const [flyAnim, setFlyAnim] = useState(null); // { fromBottom: bool, count: number }
   const { players, pile, currentTurn, round, log, ranks } = gs;
   const myHand = gs.myHand || [];
   const isMyTurn = currentTurn === myId;
   const self = players?.find(p => p.id === myId);
   const others = (players || []).filter(p => p.id !== myId);
+  const prevLogLen = useRef(0);
 
   // 턴이 바뀔 때마다 선택 초기화
   useEffect(() => {
     setSelected([]);
   }, [currentTurn]);
 
-  // 1번 카드 이펙트: 로그에 "✨ 1번 카드!" 가 있으면 이펙트 표시
+  // 로그 감지: 효과음 + 카드 날아가는 애니메이션
   useEffect(() => {
     if (!log || !log.length) return;
+    if (log.length <= prevLogLen.current) return;
+    prevLogLen.current = log.length;
     const latest = log[log.length - 1];
-    if (latest && latest.includes("✨ 1번 카드")) {
+    if (!latest) return;
+
+    if (latest.includes("✨ 1번 카드")) {
       const match = latest.match(/^(.+?)이\(가\)/);
       const nickname = match?.[1] ?? "플레이어";
       setDalmutEffect({ nickname });
-      const timer = setTimeout(() => setDalmutEffect(null), 3000);
-      return () => clearTimeout(timer);
+      setTimeout(() => setDalmutEffect(null), 3000);
+      playSound('dalmuti');
+    } else if (latest.includes("장을 냈습니다")) {
+      // 카드 날아가는 애니메이션
+      const countMatch = latest.match(/(\d+)장을 냈습니다/);
+      const count = parseInt(countMatch?.[1] ?? 1);
+      const isMyPlay = latest.startsWith(self?.nickname ?? '');
+      setFlyAnim({ fromBottom: isMyPlay, count });
+      setTimeout(() => setFlyAnim(null), 600);
+      playSound('card');
+    } else if (latest.includes("패스했습니다")) {
+      playSound('pass');
+    } else if (latest.includes("라운드 종료")) {
+      playSound('round_end');
+    } else if (latest.includes("혁명을 선언")) {
+      playSound('revolution');
+    } else if (latest.includes("세금 완료")) {
+      playSound('tax');
     }
-    if (latest && latest.includes("라운드 종료")) playSound('round_end');
-    if (latest && latest.includes("혁명을 선언")) playSound('revolution');
-    if (latest && latest.includes("세금 완료")) playSound('tax');
   }, [log?.length]);
 
   // 배경음 루프
@@ -497,9 +516,9 @@ function GameTable({ gs, myId, onPlay, onPass }) {
   useEffect(() => {
     function playBg() {
       playSound('bg');
-      bgTimer.current = setTimeout(playBg, 2800);
+      bgTimer.current = setTimeout(playBg, 2700); // 12음 * 0.22s = 2.64s
     }
-    const startTimer = setTimeout(playBg, 500);
+    const startTimer = setTimeout(playBg, 300);
     return () => { clearTimeout(startTimer); clearTimeout(bgTimer.current); };
   }, []);
   const audioCtx = useRef(null);
@@ -601,24 +620,69 @@ function GameTable({ gs, myId, onPlay, onPass }) {
         osc.start(now); osc.stop(now + 0.6);
 
       } else if (type === 'bg') {
-        // 배경음: 웅장한 왕궁 느낌 화음
-        const melody = [392, 440, 523, 494, 440, 392, 349, 392];
-        const harmony = [294, 330, 392, 370, 330, 294, 262, 294];
-        const bass =    [196, 220, 261, 247, 220, 196, 175, 196];
+        // 배경음: 웅장한 왕궁 오케스트라 느낌
+        // 주선율 (높음)
+        const melody =  [523, 587, 659, 698, 784, 698, 659, 587, 523, 494, 523, 0];
+        // 화음 (중간)
+        const harmony = [392, 440, 494, 523, 587, 523, 494, 440, 392, 370, 392, 0];
+        // 베이스 (낮음)
+        const bass =    [261, 293, 329, 349, 392, 349, 329, 293, 261, 246, 261, 0];
+        // 타악기 느낌 (드럼)
+        const drums = [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0];
+
         melody.forEach((freq, i) => {
-          [[freq, 0.08], [harmony[i], 0.05], [bass[i], 0.06]].forEach(([f, vol]) => {
+          if (freq > 0) {
+            // 주선율
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
-            const reverb = ctx.createGain();
             osc.connect(gain); gain.connect(ctx.destination);
-            osc.type = i % 2 === 0 ? 'triangle' : 'sine';
-            osc.frequency.setValueAtTime(f, now + i * 0.35);
-            gain.gain.setValueAtTime(0, now + i * 0.35);
-            gain.gain.linearRampToValueAtTime(vol, now + i * 0.35 + 0.05);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.35 + 0.4);
-            osc.start(now + i * 0.35);
-            osc.stop(now + i * 0.35 + 0.4);
-          });
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now + i * 0.22);
+            gain.gain.setValueAtTime(0, now + i * 0.22);
+            gain.gain.linearRampToValueAtTime(0.1, now + i * 0.22 + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.22 + 0.25);
+            osc.start(now + i * 0.22);
+            osc.stop(now + i * 0.22 + 0.25);
+
+            // 화음
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.connect(gain2); gain2.connect(ctx.destination);
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(harmony[i], now + i * 0.22);
+            gain2.gain.setValueAtTime(0, now + i * 0.22);
+            gain2.gain.linearRampToValueAtTime(0.07, now + i * 0.22 + 0.04);
+            gain2.gain.exponentialRampToValueAtTime(0.001, now + i * 0.22 + 0.25);
+            osc2.start(now + i * 0.22);
+            osc2.stop(now + i * 0.22 + 0.25);
+
+            // 베이스
+            const osc3 = ctx.createOscillator();
+            const gain3 = ctx.createGain();
+            osc3.connect(gain3); gain3.connect(ctx.destination);
+            osc3.type = 'sawtooth';
+            osc3.frequency.setValueAtTime(bass[i], now + i * 0.22);
+            gain3.gain.setValueAtTime(0, now + i * 0.22);
+            gain3.gain.linearRampToValueAtTime(0.06, now + i * 0.22 + 0.02);
+            gain3.gain.exponentialRampToValueAtTime(0.001, now + i * 0.22 + 0.2);
+            osc3.start(now + i * 0.22);
+            osc3.stop(now + i * 0.22 + 0.2);
+          }
+
+          // 타악기
+          if (drums[i]) {
+            const bufSize = ctx.sampleRate * 0.08;
+            const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let j = 0; j < bufSize; j++) d[j] = (Math.random() * 2 - 1) * Math.pow(1 - j/bufSize, 3);
+            const src = ctx.createBufferSource();
+            const g = ctx.createGain();
+            src.buffer = buf;
+            src.connect(g); g.connect(ctx.destination);
+            g.gain.setValueAtTime(0.15, now + i * 0.22);
+            g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.22 + 0.08);
+            src.start(now + i * 0.22);
+          }
         });
       }
     } catch(e) { /* 오디오 지원 안 하는 환경 무시 */ }
@@ -669,6 +733,32 @@ function GameTable({ gs, myId, onPlay, onPass }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-green-900 to-teal-950 flex flex-col">
+      <style>{`
+        @keyframes flyToCenter {
+          0% { transform: translateY(0) scale(1); opacity: 1; }
+          50% { transform: translateY(-120px) scale(0.8); opacity: 0.8; }
+          100% { transform: translateY(-200px) scale(0.3); opacity: 0; }
+        }
+        @keyframes flyFromTop {
+          0% { transform: translateY(-200px) scale(0.3); opacity: 0; }
+          50% { transform: translateY(-80px) scale(0.8); opacity: 0.8; }
+          100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        .fly-card { animation: flyToCenter 0.5s ease-in forwards; }
+        .fly-card-in { animation: flyFromTop 0.5s ease-out forwards; }
+      `}</style>
+
+      {/* 카드 날아가는 애니메이션 오버레이 */}
+      {flyAnim && (
+        <div className="fixed inset-0 z-40 pointer-events-none flex items-center justify-center">
+          <div className={`flex gap-1 ${flyAnim.fromBottom ? 'fly-card' : 'fly-card-in'}`}>
+            {Array.from({ length: Math.min(flyAnim.count, 5) }).map((_, i) => (
+              <div key={i} className="w-10 h-14 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-600 border-2 border-white/50 shadow-2xl"
+                style={{ animationDelay: `${i * 0.05}s` }} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 1번 카드 이펙트 오버레이 */}
       {dalmutEffect && (
@@ -955,6 +1045,44 @@ function MainScreen({ onCreateRoom, onJoinRoom, loading, isDevMode, onTestMode }
   const [showRules, setShowRules] = useState(false);
   const [devTapCount, setDevTapCount] = useState(0);
   const [devUnlocked, setDevUnlocked] = useState(false);
+  const bgTimerRef = useRef(null);
+  const audioRef = useRef(null);
+
+  // 메인화면 배경음
+  useEffect(() => {
+    function getCtx() {
+      if (!audioRef.current) audioRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      return audioRef.current;
+    }
+    function playBg() {
+      try {
+        const ctx = getCtx();
+        const now = ctx.currentTime;
+        const melody =  [523, 587, 659, 698, 784, 698, 659, 587, 523, 494, 523, 0];
+        const harmony = [392, 440, 494, 523, 587, 523, 494, 440, 392, 370, 392, 0];
+        const bass =    [261, 293, 329, 349, 392, 349, 329, 293, 261, 246, 261, 0];
+        melody.forEach((freq, i) => {
+          if (freq > 0) {
+            [[freq, 0.08, 'triangle'], [harmony[i], 0.05, 'sine'], [bass[i], 0.05, 'sawtooth']].forEach(([f, vol, type]) => {
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain); gain.connect(ctx.destination);
+              osc.type = type;
+              osc.frequency.setValueAtTime(f, now + i * 0.22);
+              gain.gain.setValueAtTime(0, now + i * 0.22);
+              gain.gain.linearRampToValueAtTime(vol, now + i * 0.22 + 0.04);
+              gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.22 + 0.25);
+              osc.start(now + i * 0.22);
+              osc.stop(now + i * 0.22 + 0.25);
+            });
+          }
+        });
+      } catch(e) {}
+      bgTimerRef.current = setTimeout(playBg, 2700);
+    }
+    const t = setTimeout(playBg, 500);
+    return () => { clearTimeout(t); clearTimeout(bgTimerRef.current); };
+  }, []);
 
   function handleSecretTap() {
     const next = devTapCount + 1;
