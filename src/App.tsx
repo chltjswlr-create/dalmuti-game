@@ -221,10 +221,26 @@ function generateRoomCode() {
 //  3. UI 컴포넌트
 // ================================================================
 
+// ── 카드별 역할 및 이모지 ─────────────────────────────────────
+const CARD_ROLE = {
+  1:  { name: "달무티",    emoji: "👑" },
+  2:  { name: "대주교",    emoji: "✝️" },
+  3:  { name: "귀족",      emoji: "🏰" },
+  4:  { name: "귀족부인",  emoji: "👸" },
+  5:  { name: "총리",      emoji: "🤵" },
+  6:  { name: "점성술사",  emoji: "🔮" },
+  7:  { name: "기사",      emoji: "⚔️" },
+  8:  { name: "재봉사",    emoji: "🧵" },
+  9:  { name: "농부",      emoji: "🌾" },
+  10: { name: "요리사",    emoji: "🍳" },
+  11: { name: "노예",      emoji: "🔗" },
+  12: { name: "대노예",    emoji: "⛓️" },
+};
+
 // ── 카드 ──────────────────────────────────────────────────────
-function Card({ card, selected, onClick, disabled, size = "md" }) {
+function Card({ card, selected, onClick, disabled, size = "md", showRole = false }) {
   const isJoker = card.joker;
-  const label = isJoker ? "🃏" : card.rank;
+  const role = isJoker ? null : CARD_ROLE[card.rank];
   const color = isJoker
     ? "bg-gradient-to-br from-purple-500 to-pink-500 text-white"
     : card.rank <= 3
@@ -232,7 +248,7 @@ function Card({ card, selected, onClick, disabled, size = "md" }) {
     : card.rank <= 7
     ? "bg-gradient-to-br from-amber-300 to-amber-500 text-gray-900"
     : "bg-gradient-to-br from-slate-200 to-slate-400 text-gray-800";
-  const sz = size === "sm" ? "w-10 h-14 text-base" : "w-14 h-20 text-xl";
+  const sz = size === "sm" ? "w-12 h-16" : "w-16 h-24";
 
   return (
     <button
@@ -241,11 +257,29 @@ function Card({ card, selected, onClick, disabled, size = "md" }) {
       className={`relative ${sz} rounded-xl shadow-lg border-2 flex flex-col items-center justify-center
         font-bold select-none transition-all duration-150 ${color}
         ${selected ? "border-white scale-110 -translate-y-3 shadow-2xl" : "border-transparent"}
-        ${disabled ? "opacity-60 cursor-not-allowed" : "hover:-translate-y-1 hover:shadow-xl cursor-pointer"}`}
+        ${disabled ? "cursor-not-allowed" : "hover:-translate-y-1 hover:shadow-xl cursor-pointer"}`}
     >
-      <span className={isJoker ? "text-3xl" : ""}>{label}</span>
+      {isJoker ? (
+        <div className="flex flex-col items-center justify-center gap-0.5">
+          <span className="text-4xl leading-none">🃏</span>
+          {size !== "sm" && <span className="text-[9px] opacity-80 font-bold mt-1">어수룩한자</span>}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center gap-0.5 px-1">
+          <span className={`${size === "sm" ? "text-lg" : "text-2xl"} leading-none`}>{role?.emoji}</span>
+          <span className={`${size === "sm" ? "text-sm" : "text-lg"} font-black leading-none`}>{card.rank}</span>
+          {size !== "sm" && <span className="text-[8px] opacity-70 font-semibold text-center leading-tight">{role?.name}</span>}
+        </div>
+      )}
       {selected && (
-        <span className="absolute -top-2 -right-2 bg-white text-blue-600 rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold">✓</span>
+        <span className="absolute -top-2 -right-2 bg-white text-blue-600 rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold shadow">✓</span>
+      )}
+      {/* 카드 모서리 숫자 */}
+      {!isJoker && size !== "sm" && (
+        <>
+          <span className="absolute top-1 left-1.5 text-[10px] font-black opacity-60">{card.rank}</span>
+          <span className="absolute bottom-1 right-1.5 text-[10px] font-black opacity-60 rotate-180">{card.rank}</span>
+        </>
       )}
     </button>
   );
@@ -259,15 +293,17 @@ function Pile({ pile }) {
         바닥 비어있음
       </div>
     );
+  const pileRank = pile.find(c => !c.joker)?.rank;
+  const role = pileRank ? CARD_ROLE[pileRank] : null;
   return (
-    <div className="flex items-center justify-center gap-1">
-      {pile.map((card, i) => (
-        <div key={card.id} style={{ marginLeft: i > 0 ? -24 : 0, zIndex: i }} className="relative">
-          <Card card={card} disabled size="sm" />
-        </div>
-      ))}
-      <div className="ml-2 text-white/70 text-sm font-semibold">
-        {pile.length}장 · {pile.find(c=>!c.joker)?.rank ?? "조커"}번
+    <div className="flex flex-col items-center gap-2">
+      <div className="flex items-center justify-center gap-2 flex-wrap max-w-xs">
+        {pile.map((card) => (
+          <Card key={card.id} card={card} disabled size="sm" />
+        ))}
+      </div>
+      <div className="text-white/70 text-sm font-semibold">
+        {pile.length}장 · {pileRank ? `${pileRank}번 ${role?.name ?? ""}` : "조커"}
       </div>
     </div>
   );
